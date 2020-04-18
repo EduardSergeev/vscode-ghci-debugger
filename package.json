@@ -1,0 +1,114 @@
+{
+  "name": "ghci-debugger",
+  "displayName": "GHCi Debugger",
+  "description": "Bare GHCi debugger",
+  "version": "0.1.0",
+  "publisher": "Edka",
+  "repository": {
+    "url": "https://github.com/EduardSergeev/vscode-ghci-debugger"
+  },
+  "engines": {
+    "vscode": "^1.43.0"
+  },
+  "categories": [
+    "Debuggers"
+  ],
+  "keywords": [
+    "haskell"
+  ],
+  "license": "MIT",
+  "galleryBanner": {
+    "theme": "dark",
+    "color": "#444"
+  },
+  "extensionDependencies": [
+    "dramforever.vscode-ghc-simple"
+  ],
+  "main": "./out/extension",
+  "activationEvents": [
+    "onDebug"
+  ],
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "GHCi Debugger configuration settings",
+      "properties": {
+        "ghci-debugger.feature.debugger": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "description": "Enable debugger feature"
+        }
+      }
+    },
+    "breakpoints": [{
+      "language": "haskell"
+    }],
+    "debuggers": [
+      {
+        "type": "ghci",
+        "label": "GHCi Debugger",
+        "program": "./out/src/debugger",
+        "runtime": "node",
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "module",
+              "function"
+            ],
+            "properties": {
+              "module": {
+                "type": "string",
+                "description": "Module containing debugging function.",
+                "default": "Main"
+              },
+              "function": {
+                "type": "string",
+                "description": "Debugging function.",
+                "default": "main"
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Automatically stop after launch.",
+                "default": true
+              },
+              "trace": {
+                "type": "boolean",
+                "description": "Enable logging of the Debug Adapter Protocol.",
+                "default": true
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "ghci",
+            "request": "launch",
+            "name": "Main.main",
+            "module": "Main",
+            "function": "main",
+            "stopOnEntry": true
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "postinstall": "node ./node_modules/vscode/bin/install",
+    "test": "npm run compile && node ./node_modules/vscode/bin/test"
+  },
+  "dependencies": {
+    "await-notify": "1.0.1",
+    "vscode-debugadapter": "1.40.0"
+  },
+  "devDependencies": {
+    "@types/mocha": "^7.0.2",
+    "@types/node": "^13.9.8",
+    "tslint": "^6.1.0",
+    "typescript": "^3.8.3",
+    "vscode": "^1.1.36"
+  }
+}

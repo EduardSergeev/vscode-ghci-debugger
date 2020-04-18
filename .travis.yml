@@ -1,0 +1,17 @@
+sudo: false
+
+os:
+  - osx
+  - linux
+
+services:
+  - xvfb
+
+install:
+  - npm install
+  - npm run vscode:prepublish
+  - npm install -g vsce
+
+script:
+  - npm test --silent
+  - vsce package
