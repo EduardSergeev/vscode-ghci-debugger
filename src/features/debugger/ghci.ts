@@ -1,7 +1,7 @@
 import { TextDocument, CancellationToken } from "vscode";
 
 export default interface Ghci {
-  startSession(doc: TextDocument): Promise<Session>;   
+  startSession(doc: TextDocument): Promise<Session>;
 }
 
 export interface Session {
@@ -14,7 +14,7 @@ export interface GhciManager {
 }
 
 export type CommandConfig = {
-  [K in keyof StrictCommandConfig]?: StrictCommandConfig[K]
+  [ K in keyof StrictCommandConfig ]?: StrictCommandConfig[ K ]
 };
 
 export interface StrictCommandConfig {

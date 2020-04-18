@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
-import GhciDebugger from './features/debugger';
+import Debugger from './features/debugger';
 
 export function activate(context: vscode.ExtensionContext) {
   const features = {
-    debugger: new GhciDebugger()
+    debugger: new Debugger()
   };
 
   for (const feature in features) {
-    if (vscode.workspace.getConfiguration('ghci-debugger').feature[feature]) {
-      const provider = features[feature];
+    if (vscode.workspace.getConfiguration('ghci-debugger').feature[ feature ]) {
+      const provider = features[ feature ];
       provider.activate(context.subscriptions);
     }
   }
