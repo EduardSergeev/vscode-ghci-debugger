@@ -1,23 +1,25 @@
 import * as vscode from 'vscode';
-import { ProviderResult, Disposable, DebugAdapterInlineImplementation, DebugAdapterDescriptorFactory, DebugAdapterDescriptor } from 'vscode';
+import { ProviderResult, DebugAdapterInlineImplementation, DebugAdapterDescriptorFactory, DebugAdapterDescriptor, ExtensionContext } from 'vscode';
 import Ghci from './debugger/ghci';
 import DebugSession from './debugger/debugSession';
 import ConfigurationProvider from './debugger/configurationProvider';
 
 export default class Debugger {
 
-  public activate(subscriptions: Disposable[]) {
+  public activate(context: ExtensionContext) {
 
     const ghci = vscode.extensions.getExtension<Ghci>('dramforever.vscode-ghc-simple');
+    const ghciApi = ghci.exports.create(context, 'GHCi Debugger');
 
     class InlineDebugAdapterFactory implements DebugAdapterDescriptorFactory {
       createDebugAdapterDescriptor(_session: vscode.DebugSession): ProviderResult<DebugAdapterDescriptor> {
-        return new DebugAdapterInlineImplementation(new DebugSession(ghci.exports));
+        return new DebugAdapterInlineImplementation(new DebugSession(ghciApi));
       }
     }
 
-    subscriptions.push(
+    context.subscriptions.push(
       vscode.debug.registerDebugConfigurationProvider('ghci', new ConfigurationProvider()),
-      vscode.debug.registerDebugAdapterDescriptorFactory('ghci', new InlineDebugAdapterFactory()));
+      vscode.debug.registerDebugAdapterDescriptorFactory('ghci', new InlineDebugAdapterFactory())
+    );
   }
 }

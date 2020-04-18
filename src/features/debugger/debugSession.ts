@@ -1,24 +1,24 @@
 import * as vscode from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, logger } from "vscode-debugadapter";
+import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, logger, OutputEvent } from "vscode-debugadapter";
 import LaunchRequestArguments from './launchRequestArguments';
 import { basename } from 'path';
-import Ghci, { Session } from './ghci';
+import Ghci, { Session, GhciApi } from './ghci';
 const { Subject } = require('await-notify');
 
 
 export default class DebugSession extends LoggingDebugSession {
-  private ghci: Ghci;
+  private ghci: GhciApi;
   private session: Session;
   private configurationDone = new Subject();
 
   private breakpoints: DebugProtocol.Breakpoint[] = [];
-  private stoppedAt: { name: string, path: string, line: number, column: number };
   private variables: DebugProtocol.Variable[];
-  private stack: StackFrame[] = [];
-  private exception;
+  private stackFrames: StackFrame[] = [];
+  private stackLevel: number;
+  private exception: { type: string, lines: string[] };
 
-  public constructor(ghci: Ghci) {
+  public constructor(ghci: GhciApi) {
     super("ghci-debug.txt");
     this.ghci = ghci;
   }
@@ -32,8 +32,19 @@ export default class DebugSession extends LoggingDebugSession {
     response.body = response.body || {};
 
     response.body.supportsConfigurationDoneRequest = true;
+
     response.body.supportsEvaluateForHovers = true;
-    // response.body.supportsExceptionInfoRequest = true;
+
+    response.body.supportsExceptionOptions = true;
+    response.body.supportsExceptionInfoRequest = true;
+    response.body.exceptionBreakpointFilters = [{
+      filter: 'exceptions',
+      label: 'Exceptions'
+    }, {
+      filter: 'errors',
+      label: 'Errors'
+    }];
+
     response.body.supportsTerminateRequest = true;
 
     this.sendResponse(response);
@@ -57,15 +68,19 @@ export default class DebugSession extends LoggingDebugSession {
 
     this.session = await this.ghci.startSession(vscode.window.activeTextEditor.document);
     await this.session.loading;
+    await this.session.reload();
+    // await this.session.ghci.sendCommand(
+    //   `:set -fexternal-interpreter`
+    // );
+    // await this.session.ghci.sendCommand(
+    //   `:set -prof`
+    // );
     await this.session.ghci.sendCommand(
       `:set -fbyte-code`
     );
     await this.session.ghci.sendCommand(
-      `:load ${ args.module }`
+      `:load *${ args.module }`
     );
-    // await this._session.ghci.sendCommand(
-    //     `:set -fbreak-on-exception`
-    // );
 
     this.sendEvent(new InitializedEvent());
 
@@ -73,7 +88,8 @@ export default class DebugSession extends LoggingDebugSession {
     await this.configurationDone.wait(10000);
 
     this.session.ghci.sendCommand(
-      args.stopOnEntry ? `:step ${ args.function }` : `:trace ${ args.function }`
+      args.stopOnEntry ? `:step ${ args.function }` : `:trace ${ args.function }`,
+      { info: "Starting"}
     ).then(response => this.didStop(response));
 
     this.sendResponse(response);
@@ -111,6 +127,31 @@ export default class DebugSession extends LoggingDebugSession {
     this.sendResponse(response);
   }
 
+  protected async setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments, request?: DebugProtocol.Request): Promise<void> {
+    if (args.filters.includes('exceptions')) {
+      await this.session.ghci.sendCommand(
+        ':set -fbreak-on-exception'
+      );
+    } else {
+      await this.session.ghci.sendCommand(
+        ':unset -fbreak-on-exception'
+      );
+    }
+
+    if (args.filters.includes('errors')) {
+      await this.session.ghci.sendCommand(
+        ':set -fbreak-on-error'
+      );
+    } else {
+      await this.session.ghci.sendCommand(
+        ':unset -fbreak-on-error'
+      );
+    }
+    this.sendResponse(response);
+  }
+
+
+
   protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
     response.body = {
       threads: [
@@ -120,16 +161,27 @@ export default class DebugSession extends LoggingDebugSession {
     this.sendResponse(response);
   }
 
-  protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
-    response.body = {
-      stackFrames: (this.stack.length ? this.stack : [
+  protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): Promise<void> {
+    const resp = await this.session.ghci.sendCommand(
+      ':history'
+    );
+    const history = resp.join('\n');
+    const pattern = /-(\d+)\s+:\s+\[1m(.+)\[0m\s+\((.+):(\d+):(\d+)-(\d+)\)/gm;
+    for (let match, i = 0; (match = pattern.exec(history)) && (!args.levels || i < args.levels); i++) {
+      const [ , index, name, path, line, column ] = match;
+      this.stackFrames.push(
         new StackFrame(
-          0,
-          this.stoppedAt.name.split(".").slice(-1)[ 0 ],
-          new Source(basename(this.stoppedAt.path), this.stoppedAt.path),
-          this.stoppedAt.line,
-          this.stoppedAt.column) ]),
-      totalFrames: 1
+          Number(index),
+          name,
+          new Source(basename(path), path),
+          Number(line),
+          Number(column)
+        )
+      );
+    }
+    response.body = {
+      stackFrames: this.stackFrames,
+      totalFrames: this.stackFrames.length
     };
     this.sendResponse(response);
   }
@@ -137,13 +189,58 @@ export default class DebugSession extends LoggingDebugSession {
   protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
     response.body = {
       scopes: [
-        new Scope("Local", 1, false)
+        new Scope("Local", args.frameId + 1, false)
       ]
+      .concat(
+        this.exception && args.frameId === 1 ? [new Scope("Exception", 1, false)] : []
+      )
     };
     this.sendResponse(response);
   }
 
-  protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request): void {
+  protected async variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request): Promise<void> {
+    const updateVariables = async (output: string[]) => {
+      this.variables = [];
+      for (let match, pattern = /(\S+) :: (\S+)/g; match = pattern.exec(output.join('\n'));) {
+        const [ , name, type ] = match;
+        if (name === 'it') {
+          continue;
+        }
+        await this.session.ghci.sendCommand(
+          `:force ${name}`
+        );
+        const lines = await this.session.ghci.sendCommand(
+          `:print ${name}`
+        );
+        const output = lines.join('\n');
+        if(match = output.match(/= ([\s\S]+?)\[/)) {
+          const [, value] = match;
+          this.variables.push({
+            name: name,
+            type: type,
+            value: value,
+            evaluateName: name,
+            variablesReference: 0
+          });
+        }
+      }
+    };
+
+    const diff = args.variablesReference - 1 - this.stackLevel;
+    this.stackLevel = this.stackLevel + diff;
+    if (diff > 0) {
+      await this.session.ghci.sendCommand(
+        `:back ${diff}`
+      ).then(updateVariables);
+    } else if (diff < 0) {
+      await this.session.ghci.sendCommand(
+        `:forward ${-diff}`
+      ).then(updateVariables);
+    } else {
+      await this.session.ghci.sendCommand(
+        `:show bindings`
+      ).then(updateVariables);
+    }
     response.body = {
       variables: this.variables
     };
@@ -151,12 +248,31 @@ export default class DebugSession extends LoggingDebugSession {
   }
 
   protected exceptionInfoRequest(response: DebugProtocol.ExceptionInfoResponse, args: DebugProtocol.ExceptionInfoArguments, request?: DebugProtocol.Request): void {
+    const message = this.exception.lines[0];
+    const content = this.exception.lines.join('\n');
+    const patterns = [
+      /^\s+(.+), called at (.+):(\d+):(\d+) in (.+)/gm,
+      /^\s+(.+)\s+\((.+):(?:(?:(\d+):(\d+)-(\d+))|(?:\((\d+),(\d+)\)-\((\d+),(\d+)\)))\)/gm
+    ];
+    const callStack = [];
+    for (const pattern of patterns) {
+      for (let match; match = pattern.exec(content);) {
+        callStack.push(match[0]);
+      }
+    }
     response.body = {
-      exceptionId: "exception",
-      description: this.exception,
-      breakMode: 'unhandled',
-      details: this.exception
+      exceptionId: message,
+      description: message,
+      breakMode: 'always',
+      details: {
+        message: message,
+        typeName: this.exception.type.split('.').slice(-1)[0],
+        fullTypeName: this.exception.type,
+        stackTrace: callStack.join('\n'),
+        evaluateName: '_exception'
+      }
     };
+    this.sendResponse(response);
   }
 
   protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
@@ -186,15 +302,13 @@ export default class DebugSession extends LoggingDebugSession {
 
 
   protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
-    this.stack = [];
     this.session.ghci.sendCommand(
-      ':continue'
+      ':trace'
     ).then(response => this.didStop(response));
     this.sendResponse(response);
   }
 
   protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
-    this.stack = [];
     this.session.ghci.sendCommand(
       ':step'
     ).then(response => this.didStop(response));
@@ -209,67 +323,51 @@ export default class DebugSession extends LoggingDebugSession {
   }
 
 
-  private didStop(response: string[]) {
+  private async didStop(response: string[]) {
+    this.stackLevel = 0;
+    this.stackFrames = [];
+    this.variables = [];
+    this.exception = null;
     const output = response.join('\n');
+    this.sendEvent(new OutputEvent(output));
+
     let match =
       output.match(/Stopped in (\S+),\s(.*):(\d+):(\d+)/) ||
       output.match(/Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/);
     if (match) {
       const [ , name, path, line, column ] = match;
-      this.stoppedAt = {
-        name: name,
-        path: path,
-        line: Number(line),
-        column: Number(column)
-      };
+      this.stackFrames = [
+        new StackFrame(
+          Number(0),
+          name.split('.').slice(-1)[0],
+          new Source(basename(path), path),
+          Number(line),
+          Number(column)
+        )
+      ];
 
-      this.variables = [];
-      for (let match, pattern = /(.+?) :: (.+?) = (.+)/g; match = pattern.exec(output);) {
-        const [ , name, type, value ] = match;
-        this.variables.push({
-          name: name,
-          type: type,
-          value: value,
-          variablesReference: 0
-        });
-      }
       if (this.breakpoints.find(breakpoint =>
-        breakpoint.line === this.stoppedAt.line && breakpoint.column === this.stoppedAt.column)) {
-        this.sendEvent(new StoppedEvent('breakpoint', 1));
+        breakpoint.line === Number(line) && breakpoint.column === Number(column))) {
+          this.sendEvent(new StoppedEvent('breakpoint', 1));
       } else {
         this.sendEvent(new StoppedEvent('step', 1));
       }
     } else if (match = output.match(/\*\*\* Exception: ([\s\S]+?)(CallStack|$)/m)) {
-      this.exception = match[ 1 ];
-      const pattern =
-        output.match(/CallStack \(from -prof\):/) ?
-          /^\s+(.+)\s+\((.+):(?:(?:(\d+):(\d+)-(\d+))|(?:\((\d+),(\d+)\)-\((\d+),(\d+)\)))\)/gm :
-          (output.match(/CallStack \(from HasCallStack\):/)) ?
-            /^\s+(.+), called at (.+):(\d+):(\d+) in (.+)/gm :
-            /$ ^/gm;
-      for (let match, i = 0; match = pattern.exec(output); i++) {
-        const [ , name, path, line1, column1, , line2, column2 ] = match;
-        this.stack.push(
-          new StackFrame(
-            i,
-            name,
-            new Source(
-              basename(path), path),
-            Number(line1 || line2),
-            Number(column1 || column2)));
-      }
-      this.sendEvent(new StoppedEvent('exception', 1, this.exception));
+      this.sendEvent(new TerminatedEvent());
     } else if (match = output.match(/Stopped in <exception thrown>/)) {
-      this.session.ghci.sendCommand(
-        ':hist 1'
-      ).then(response => this.didStop(response));
-    } else if (match = output.match(/   /)) {
-      const [ , name, path, line, column ] = match;
-      this.stoppedAt = {
-        name: name,
-        path: path,
-        line: Number(line),
-        column: Number(column)
+      await this.session.ghci.sendCommand(
+        ':force _exception'
+      );
+      const [exception] = await this.session.ghci.sendCommand(
+        ':type _exception'
+      );
+      const [, exceptionType] = exception.match(/::\s+(.+)/);
+      const lines = await this.session.ghci.sendCommand(
+        'putStrLn $ show _exception'
+      );
+      this.exception = {
+        lines: lines.map(line => line.replace(/\[<unknown>\]\s+/g, '')),
+        type: exceptionType
       };
       this.sendEvent(new StoppedEvent('exception', 1));
     } else {
