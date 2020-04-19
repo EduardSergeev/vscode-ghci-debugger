@@ -97,10 +97,11 @@ export default class DebugSession extends LoggingDebugSession {
     this.sendResponse(response);
   }
 
+
   protected async setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): Promise<void> {
     const source = args.source;
     await this.session.ghci.sendCommand(
-      `:add "*${source.path}"`
+      `:add *${source.path}`
     );
     const modules = (await this.session.ghci.sendCommand(
       `:show modules`
@@ -108,7 +109,7 @@ export default class DebugSession extends LoggingDebugSession {
 
     let module;
     for(let match, pattern = /^([^ ]+)\s+\( (.+), .+ \)$/gm; match = pattern.exec(modules);) {
-      if(match[2] === source.path) {
+      if(match[2].toLowerCase() === source.path.toLowerCase()) {
         module = match[1];
         break;
       }
@@ -178,18 +179,23 @@ export default class DebugSession extends LoggingDebugSession {
       ':history'
     );
     const history = resp.join('\n');
-    const pattern = /-(\d+)\s+:\s+\[1m(.+)\[0m\s+\((.+):(\d+):(\d+)-(\d+)\)/gm;
-    for (let match, i = 0; (match = pattern.exec(history)) && (!args.levels || i < args.levels); i++) {
-      const [ , index, name, path, line, column ] = match;
-      this.stackFrames.push(
-        new StackFrame(
-          Number(index),
-          name,
-          new Source(basename(path), path),
-          Number(line),
-          Number(column)
-        )
-      );
+    const patterns = [
+      /-(\d+)\s+:\s+(?:\[1m)?(.+?)(?:\[0m)?\s+\((.+):(\d+):(\d+)(?:-(\d+))?\)/g,
+      /-(\d+)\s+:\s+(?:\[1m)?(.+?)(?:\[0m)?\s+\((.+):\((\d+),(\d+)\)-\((\d+),(\d+)\)\)/g
+    ];
+    for (const pattern of patterns) {
+      for (let match, i = 0; (match = pattern.exec(history)) && (!args.levels || i < args.levels); i++) {
+        const [, index, name, path, line, column] = match;
+        this.stackFrames.push(
+          new StackFrame(
+            Number(index),
+            name,
+            new Source(basename(path), path),
+            Number(line),
+            Number(column)
+          )
+        );
+      }
     }
     response.body = {
       stackFrames: this.stackFrames,
