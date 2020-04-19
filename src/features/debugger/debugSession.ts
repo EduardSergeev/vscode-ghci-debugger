@@ -67,25 +67,31 @@ export default class DebugSession extends LoggingDebugSession {
     logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
 
     this.session = await this.ghci.startSession(vscode.window.activeTextEditor.document);
+    this.session.reload();
     await this.session.loading;
-    await this.session.reload();
+    await this.session.loadInterpreted(vscode.window.activeTextEditor.document.uri);
+    // await this.session.loadInterpreted(vscode.window.activeTextEditor.document.uri);
     // await this.session.ghci.sendCommand(
     //   `:set -fexternal-interpreter`
     // );
     // await this.session.ghci.sendCommand(
     //   `:set -prof`
     // );
-    await this.session.ghci.sendCommand(
-      `:set -fbyte-code`
-    );
-    await this.session.ghci.sendCommand(
-      `:load *${ args.module }`
-    );
+    // await this.session.ghci.sendCommand(
+    //   `:set -fbyte-code`
+    // );
+    // await this.session.ghci.sendCommand(
+    //   `:load *${ args.module }`
+    // );
 
     this.sendEvent(new InitializedEvent());
 
     // wait until configuration has finished (and configurationDoneRequest has been called)
-    await this.configurationDone.wait(10000);
+    await this.configurationDone.wait(100000);
+
+    await this.session.ghci.sendCommand(
+      `:module ${args.module}`
+    );
 
     this.session.ghci.sendCommand(
       args.stopOnEntry ? `:step ${ args.function }` : `:trace ${ args.function }`,
@@ -97,17 +103,27 @@ export default class DebugSession extends LoggingDebugSession {
 
   protected async setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): Promise<void> {
     const source = args.source;
-    // clear all breakpoints for this file
-    this.breakpoints = [];
     await this.session.ghci.sendCommand(
-      ':delete *'
+      `:add "*${source.path}"`
     );
+    const modules = (await this.session.ghci.sendCommand(
+      `:show modules`
+    )).join('\n');
+
+    let module;
+    for(let match, pattern = /^([^ ]+)\s+\( (.+), .+ \)$/gm; match = pattern.exec(modules);) {
+      if(match[2] === source.path) {
+        module = match[1];
+        break;
+      }
+    }
 
     // set breakpoint locations
+    this.breakpoints = [];
     this.breakpoints = await Promise.all(
       args.breakpoints.map(async breakpoint => {
         const response = await this.session.ghci.sendCommand(
-          `:break ${ args.source.name.split(".")[ 0 ] } ${ breakpoint.line }`
+          `:break ${module} ${breakpoint.line}`
         );
         const [ , id, line, column ] =
           response[ 0 ].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)-(\d+)/) ||
