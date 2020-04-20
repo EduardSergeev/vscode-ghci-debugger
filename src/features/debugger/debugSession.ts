@@ -66,26 +66,22 @@ export default class DebugSession extends LoggingDebugSession {
     // make sure to 'Stop' the buffered logging if 'trace' is not set
     logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
 
-    this.session = await this.ghci.startSession(vscode.window.activeTextEditor.document);
+    this.session = await this.ghci.startSession(
+      vscode.window.activeTextEditor.document, {
+        // startOptions: "-fexternal-interpreter -prof",
+        // reloadCommands: [
+        //   ":set -fbyte-code"
+        // ],
+        startupCommands: {
+          // all: []
+        }
+      }
+    );
     this.session.reload();
     await this.session.loading;
     await this.session.loadInterpreted(vscode.window.activeTextEditor.document.uri);
-    // await this.session.loadInterpreted(vscode.window.activeTextEditor.document.uri);
-    // await this.session.ghci.sendCommand(
-    //   `:set -fexternal-interpreter`
-    // );
-    // await this.session.ghci.sendCommand(
-    //   `:set -prof`
-    // );
-    // await this.session.ghci.sendCommand(
-    //   `:set -fbyte-code`
-    // );
-    // await this.session.ghci.sendCommand(
-    //   `:load *${ args.module }`
-    // );
 
     this.sendEvent(new InitializedEvent());
-
     // wait until configuration has finished (and configurationDoneRequest has been called)
     await this.configurationDone.wait(100000);
 

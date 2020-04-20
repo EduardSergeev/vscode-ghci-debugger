@@ -9,7 +9,7 @@ export default class Debugger {
   public activate(context: ExtensionContext) {
 
     const ghci = vscode.extensions.getExtension<Ghci>('dramforever.vscode-ghc-simple');
-    const ghciApi = ghci.exports.create(context, 'GHCi Debugger');
+    const ghciApi = ghci.exports.startApi(context, 'GHCi Debugger');
 
     class InlineDebugAdapterFactory implements DebugAdapterDescriptorFactory {
       createDebugAdapterDescriptor(_session: vscode.DebugSession): ProviderResult<DebugAdapterDescriptor> {
