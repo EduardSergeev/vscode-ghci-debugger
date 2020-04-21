@@ -14,7 +14,7 @@ export default class DebugSession extends LoggingDebugSession {
 
   private breakpoints: DebugProtocol.Breakpoint[] = [];
   private variables: DebugProtocol.Variable[];
-  private stackFrames: StackFrame[] = [];
+  private stackFrames: DebugProtocol.StackFrame[] = [];
   private stackLevel: number;
   private exception: { type: string, lines: string[] };
 
@@ -115,20 +115,26 @@ export default class DebugSession extends LoggingDebugSession {
     // set breakpoint locations
     this.breakpoints = [];
     this.breakpoints = await Promise.all(
-      args.breakpoints.map(async breakpoint => {
+      args.breakpoints.map(async bp => {
         const response = await this.session.ghci.sendCommand(
-          `:break ${module} ${breakpoint.line}`
+          `:break ${module} ${bp.line} ${bp.column || ''}`
         );
-        const [ , id, line, column ] =
-          response[ 0 ].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)-(\d+)/) ||
+        const [, id, line, column, endLineColumn, endColumn] =
+          response[ 0 ].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)(?:-(\d+))/) ||
           response[ 0 ].match(/Breakpoint\s(\d+).+?:\((\d+),(\d+)\)-\((\d+),(\d+)\)/);
-        const bp = <DebugProtocol.Breakpoint>new Breakpoint(
+        const breakpoint = <DebugProtocol.Breakpoint>new Breakpoint(
           true,
           Number(line),
           Number(column),
           new Source(source.name, source.path));
-        bp.id = Number(id);
-        return bp;
+        breakpoint.id = Number(id);
+        if(endColumn) {
+          breakpoint.endLine = Number(endLineColumn);
+        } else if (endLineColumn) {
+          breakpoint.endLine = Number(line);
+          breakpoint.endColumn = Number(endLineColumn);
+        }
+        return breakpoint;
       })
     );
     response.body = {
@@ -182,16 +188,21 @@ export default class DebugSession extends LoggingDebugSession {
     ];
     for (const pattern of patterns) {
       for (let match, i = 0; (match = pattern.exec(history)) && (!args.levels || i < args.levels); i++) {
-        const [, index, name, path, line, column] = match;
-        this.stackFrames.push(
-          new StackFrame(
+        const [, index, name, path, line, column, endLineColumn, endColumn] = match;
+        const frame = <DebugProtocol.StackFrame>new StackFrame(
             Number(index),
             name,
             new Source(basename(path), path),
             Number(line),
-            Number(column)
-          )
-        );
+            Number(column),
+          );
+        if(endColumn) {
+          frame.endLine = Number(endLineColumn);
+        } else if (endLineColumn) {
+          frame.endLine = Number(line);
+          frame.endColumn = Number(endLineColumn);
+        }
+        this.stackFrames.push(frame);
       }
     }
     response.body = {
@@ -235,6 +246,10 @@ export default class DebugSession extends LoggingDebugSession {
             type: type,
             value: value,
             evaluateName: name,
+            presentationHint: {
+              kind: 'data',
+              attributes: ['readOnly']
+            },
             variablesReference: 0
           });
         }
