@@ -361,8 +361,8 @@ export default class DebugSession extends LoggingDebugSession {
     const output = response.join('\n');
 
     let match =
-      output.match(/(?:\[.*\] )?([\s\S]*)^Stopped in (\S+),\s(.*):(\d+):(\d+)/m) ||
-      output.match(/(?:\[.*\] )?([\s\S]*)^Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/m);
+      output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):(\d+):(\d+)/m) ||
+      output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/m);
     if (match) {
       const [ , out, name, path, line, column ] = match;
       if(out) {
