@@ -14,7 +14,7 @@ export default class DebugSession extends LoggingDebugSession {
 
   private breakpoints: DebugProtocol.Breakpoint[] = [];
   private variables: DebugProtocol.Variable[];
-  private stackFrames: DebugProtocol.StackFrame[] = [];
+  private stoppedAt: DebugProtocol.StackFrame;
   private stackLevel: number;
   private exception: { type: string, lines: string[] };
 
@@ -181,13 +181,18 @@ export default class DebugSession extends LoggingDebugSession {
     const resp = await this.session.ghci.sendCommand(
       ':history'
     );
-    const history = resp.join('\n');
-    const patterns = [
-      /-(\d+)\s+:\s+(?:\[1m)?(.+?)(?:\[0m)?\s+\((.+):(\d+):(\d+)(?:-(\d+))?\)/g,
-      /-(\d+)\s+:\s+(?:\[1m)?(.+?)(?:\[0m)?\s+\((.+):\((\d+),(\d+)\)-\((\d+),(\d+)\)\)/g
-    ];
-    for (const pattern of patterns) {
-      for (let match, i = 0; (match = pattern.exec(history)) && (!args.levels || i < args.levels); i++) {
+    let level = 1;
+    let stackFrames = this.stoppedAt ? [this.stoppedAt] : [];
+    for (const line of resp) {
+      if(level > args.levels) {
+        break;
+      }
+      const match = line.match(
+        /-(\d+)\s+:\s+(?:\[1m)?(.+?)(?:\[0m)?\s+\((.+):(\d+):(\d+)(?:-(\d+))?\)/
+      ) || line.match(
+        /-(\d+)\s+:\s+(?:\[1m)?(.+?)(?:\[0m)?\s+\((.+):\((\d+),(\d+)\)-\((\d+),(\d+)\)\)/
+      );
+      if(match) {
         const [, index, name, path, line, column, endLineColumn, endColumn] = match;
         const frame = <DebugProtocol.StackFrame>new StackFrame(
             Number(index),
@@ -202,12 +207,12 @@ export default class DebugSession extends LoggingDebugSession {
           frame.endLine = Number(line);
           frame.endColumn = Number(endLineColumn);
         }
-        this.stackFrames.push(frame);
+        stackFrames.push(frame);
       }
     }
     response.body = {
-      stackFrames: this.stackFrames,
-      totalFrames: this.stackFrames.length
+      stackFrames: stackFrames,
+      totalFrames: stackFrames.length
     };
     this.sendResponse(response);
   }
@@ -355,7 +360,7 @@ export default class DebugSession extends LoggingDebugSession {
 
   private async didStop(response: string[]) {
     this.stackLevel = 0;
-    this.stackFrames = [];
+    this.stoppedAt = null;
     this.variables = [];
     this.exception = null;
     const output = response.join('\n');
@@ -368,15 +373,14 @@ export default class DebugSession extends LoggingDebugSession {
       if(out) {
         this.sendEvent(new OutputEvent(out));
       }
-      this.stackFrames = [
+      this.stoppedAt =
         new StackFrame(
           Number(0),
           name.split('.').slice(-1)[0],
           new Source(basename(path), path),
           Number(line),
           Number(column)
-        )
-      ];
+        );
 
       if (this.breakpoints.find(breakpoint =>
         breakpoint.line === Number(line) && breakpoint.column === Number(column))) {
