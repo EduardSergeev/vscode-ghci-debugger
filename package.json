@@ -1,8 +1,8 @@
 {
   "name": "ghci-debugger",
-  "displayName": "GHCi Debugger",
-  "description": "Bare GHCi debugger",
-  "version": "0.1.2",
+  "displayName": "Bare GHCi Debugger",
+  "description": "Pure TypeScript adapter to GHCi debugger",
+  "version": "0.2.0",
   "publisher": "Edka",
   "repository": {
     "url": "https://github.com/EduardSergeev/vscode-ghci-debugger"
@@ -14,7 +14,7 @@
     "Debuggers"
   ],
   "keywords": [
-    "haskell"
+    "Haskell"
   ],
   "license": "MIT",
   "galleryBanner": {
@@ -84,7 +84,7 @@
             "name": "Main.main",
             "module": "Main",
             "function": "main",
-            "stopOnEntry": true
+            "stopOnEntry": false
           }
         ]
       }
