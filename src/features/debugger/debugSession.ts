@@ -412,6 +412,8 @@ export default class DebugSession extends LoggingDebugSession {
       };
       this.sendEvent(new StoppedEvent('exception', 1));
     } else {
+      const [, out] = output.match(/(?:\[.*\] )?([\s\S]*)/);
+      this.sendEvent(new OutputEvent(out));
       this.sendEvent(new TerminatedEvent());
     }
   }
