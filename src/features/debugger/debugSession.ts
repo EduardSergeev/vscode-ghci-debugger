@@ -344,13 +344,15 @@ export default class DebugSession extends LoggingDebugSession {
     this.variables = [];
     this.exception = null;
     const output = response.join('\n');
-    this.sendEvent(new OutputEvent(output));
 
     let match =
-      output.match(/Stopped in (\S+),\s(.*):(\d+):(\d+)/) ||
-      output.match(/Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/);
+      output.match(/(?:\[.*\] )?([\s\S]*)^Stopped in (\S+),\s(.*):(\d+):(\d+)/m) ||
+      output.match(/(?:\[.*\] )?([\s\S]*)^Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/m);
     if (match) {
-      const [ , name, path, line, column ] = match;
+      const [ , out, name, path, line, column ] = match;
+      if(out) {
+        this.sendEvent(new OutputEvent(out));
+      }
       this.stackFrames = [
         new StackFrame(
           Number(0),
@@ -367,9 +369,14 @@ export default class DebugSession extends LoggingDebugSession {
       } else {
         this.sendEvent(new StoppedEvent('step', 1));
       }
-    } else if (match = output.match(/\*\*\* Exception: ([\s\S]+?)(CallStack|$)/m)) {
+    } else if (match = output.match(/(?:\[.*\] )?([\s\S]*)(^\*\*\* Exception: [\s\S]*)/m)) {
+      const [, out, exception] = match;
+      this.sendEvent(new OutputEvent(out));
+      this.sendEvent(new OutputEvent(exception));
       this.sendEvent(new TerminatedEvent());
-    } else if (match = output.match(/Stopped in <exception thrown>/)) {
+    } else if (match = output.match(/(?:\[.*\] )?([\s\S]*)Stopped in <exception thrown>/m)) {
+      const [, out] = match;
+      this.sendEvent(new OutputEvent(out));
       await this.session.ghci.sendCommand(
         ':force _exception'
       );
