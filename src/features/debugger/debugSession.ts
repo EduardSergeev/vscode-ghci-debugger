@@ -120,8 +120,8 @@ export default class DebugSession extends LoggingDebugSession {
           `:break ${module} ${bp.line} ${bp.column || ''}`
         );
         const [, id, line, column, endLineColumn, endColumn] =
-          response[ 0 ].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)(?:-(\d+))/) ||
-          response[ 0 ].match(/Breakpoint\s(\d+).+?:\((\d+),(\d+)\)-\((\d+),(\d+)\)/);
+          response[0].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)(?:-(\d+))?/) ||
+          response[0].match(/Breakpoint\s(\d+).+?:\((\d+),(\d+)\)-\((\d+),(\d+)\)/);
         const breakpoint = <DebugProtocol.Breakpoint>new Breakpoint(
           true,
           Number(line),
