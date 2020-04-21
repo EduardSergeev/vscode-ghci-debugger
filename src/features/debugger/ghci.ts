@@ -6,7 +6,6 @@ export default interface Ghci {
 }
 
 export interface GhciApi {
-  outputChannel: OutputChannel;
   startSession(doc: TextDocument, ghciOptions?: GhciOptions): Promise<Session>;
 }
 

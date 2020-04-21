@@ -21,9 +21,6 @@
     "theme": "dark",
     "color": "#444"
   },
-  "extensionDependencies": [
-    "dramforever.vscode-ghc-simple"
-  ],
   "main": "./out/extension",
   "activationEvents": [
     "onDebug"
