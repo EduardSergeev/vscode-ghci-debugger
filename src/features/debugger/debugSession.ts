@@ -2,12 +2,13 @@ import * as vscode from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, logger, OutputEvent } from "vscode-debugadapter";
 import LaunchRequestArguments from './launchRequestArguments';
-import { basename } from 'path';
+import { basename, join, isAbsolute } from 'path';
 import { GhciApi, Session } from './ghci';
 const { Subject } = require('await-notify');
 
 
 export default class DebugSession extends LoggingDebugSession {
+  private rootDir: string;
   private ghci: GhciApi;
   private session: Session;
   private configurationDone = new Subject();
@@ -21,6 +22,7 @@ export default class DebugSession extends LoggingDebugSession {
   public constructor(ghci: GhciApi) {
     super("ghci-debug.txt");
     this.ghci = ghci;
+    this.rootDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
   }
 
 	/**
@@ -97,9 +99,9 @@ export default class DebugSession extends LoggingDebugSession {
 
   protected async setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): Promise<void> {
     const source = args.source;
-    await this.session.ghci.sendCommand(
-      `:add *${source.path}`
-    );
+    // await this.session.ghci.sendCommand(
+    //   `:add *${source.path}`
+    // );
     const modules = (await this.session.ghci.sendCommand(
       `:show modules`
     )).join('\n');
@@ -377,7 +379,7 @@ export default class DebugSession extends LoggingDebugSession {
         new StackFrame(
           Number(0),
           name.split('.').slice(-1)[0],
-          new Source(basename(path), path),
+          new Source(basename(path), isAbsolute(path) ? path : join(this.rootDir, path)),
           Number(line),
           Number(column)
         );
