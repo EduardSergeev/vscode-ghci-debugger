@@ -1,24 +1,23 @@
-import { TextDocument, CancellationToken, Uri, ExtensionContext } from "vscode";
+import { TextDocument, CancellationToken, Uri, ExtensionContext, OutputChannel } from "vscode";
+
 
 export default interface Ghci {
-  startApi(context: ExtensionContext, channelName: string): GhciApi;
+  startApi(context: ExtensionContext, outputChannel?: OutputChannel): GhciApi;
+}
+
+export interface GhciApi {
+  outputChannel: OutputChannel;
+  startSession(doc: TextDocument, ghciOptions?: GhciOptions): Promise<Session>;
 }
 
 export interface GhciOptions {
   startOptions?: string;
   reloadCommands?: string[];
-  startupCommands: {
+  startupCommands?: {
       all?: string[];
       bare?: string[];
       custom?: string[];
   };
-}
-
-export interface GhciApi {
-  startSession(doc: TextDocument, ghciOptions?: GhciOptions): Promise<Session>;
-}
-
-export interface ExtensionState {
 }
 
 export interface Session {

@@ -3,7 +3,7 @@ import { DebugProtocol } from 'vscode-debugprotocol';
 import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, logger, OutputEvent } from "vscode-debugadapter";
 import LaunchRequestArguments from './launchRequestArguments';
 import { basename } from 'path';
-import Ghci, { Session, GhciApi } from './ghci';
+import { GhciApi, Session } from './ghci';
 const { Subject } = require('await-notify');
 
 
@@ -72,9 +72,6 @@ export default class DebugSession extends LoggingDebugSession {
         // reloadCommands: [
         //   ":set -fbyte-code"
         // ],
-        startupCommands: {
-          // all: []
-        }
       }
     );
     this.session.reload();
