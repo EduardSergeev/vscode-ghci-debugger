@@ -70,11 +70,8 @@ export default class DebugSession extends LoggingDebugSession {
 
     this.session = await this.ghci.startSession(
       vscode.window.activeTextEditor.document, {
-        target: args.target
-        // startOptions: "-fexternal-interpreter -prof",
-        // reloadCommands: [
-        //   ":set -fbyte-code"
-        // ],
+        target: args.target,
+        startOptions: "-w",
       }
     );
     await this.session.reload();
@@ -83,15 +80,9 @@ export default class DebugSession extends LoggingDebugSession {
       `:l ${args.module}`
     );
 
-    // await this.session.loadInterpreted(vscode.window.activeTextEditor.document.uri);
-
     this.sendEvent(new InitializedEvent());
     // wait until configuration has finished (and configurationDoneRequest has been called)
-    await this.configurationDone.wait(100000);
-
-    // await this.session.ghci.sendCommand(
-    //   `:module ${args.module}`
-    // );
+    await this.configurationDone.wait(1000);
 
     this.session.ghci.sendCommand(
       args.noDebug ?

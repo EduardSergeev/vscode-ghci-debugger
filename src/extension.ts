@@ -8,8 +8,8 @@ export function activate(context: ExtensionContext) {
   };
 
   for (const feature in features) {
-    if (vscode.workspace.getConfiguration('ghci-debugger').feature[ feature ]) {
-      const provider = features[ feature ];
+    if (vscode.workspace.getConfiguration('ghci-debugger').feature[feature]) {
+      const provider = features[feature];
       provider.activate(context);
     }
   }

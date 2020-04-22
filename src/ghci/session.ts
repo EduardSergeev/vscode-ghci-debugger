@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
-import * as child_process from 'child_process';
 import { GhciManager, GhciOptions } from "./ghci";
 import { ExtensionState, HaskellWorkspaceType } from "./extension-state";
-import { stackCommand, reportError } from './utils';
+import { stackCommand, reportError, getStackIdeTargets, pickTarget, getCabalTargets } from './utils';
 import Path = require('path');
 
 export class Session implements vscode.Disposable {
@@ -67,76 +66,29 @@ export class Session implements vscode.Disposable {
   async startP() {
     if (this.ghci === null) {
       const wst = this.workspaceType;
-
-      const getStackIdeTargets = async () => {
-        this.checkDisposed();
-        const result = await new Promise<string>((resolve, reject) => {
-          child_process.exec(
-            `${ stackCommand } ide targets`,
-            this.cwdOption,
-            (err, stdout, stderr) => {
-              if (err) {
-                reject('Command stack ide targets failed:\n' + stderr);
-              }
-              else {
-                resolve(stderr);
-              }
-            }
-          );
-        });
-        return result.match(/^[^\s]+:[^\s]+$/gm);
-      };
-
-      const getCabalTargets = async (configure: string) => {
-        const result = await new Promise<string>((resolve, reject) => {
-          child_process.exec(
-            `cabal ${configure} --dry-run`,
-            this.cwdOption,
-            (err, stdout, stderr) => {
-              if (err) {
-                reject('Command "cabal new-configure" failed:\n' + stderr);
-              }
-              else {
-                resolve(stdout);
-              }
-            }
-          );
-        });
-        const targets = [];
-        for (let match, pattern = /^\s+-\s+(\S+)-.+?\((.+?)\)/gm; match = pattern.exec(result);) {
-          const [, module, type] = match;
-          targets.push(
-            type.includes(':') ? type : module
-          );
-        }
-        return targets;
-      };
-
-      const pickTarget = async (targets: string[]) =>
-        targets.length > 1 ? await vscode.window.showQuickPick(targets) : targets[0];
-
+      
       this.checkDisposed();
       const cmd = await (async () => {
         if (wst === 'custom-workspace' || wst === 'custom-file') {
           let cmd = vscode.workspace.getConfiguration('ghci-debugger', this.resource).replCommand;
           if (cmd.indexOf('$stack_ide_targets') !== -1) {
-            const sit = await getStackIdeTargets();
+            const sit = await getStackIdeTargets(this.cwdOption);
             cmd.replace(/\$stack_ide_targets/g, sit.join(' '));
           }
           return cmd;
         } else if (wst === 'stack') {
-          let target = this.ghciOptions.target || await pickTarget(await getStackIdeTargets());
+          let target = this.ghciOptions.target || await pickTarget(await getStackIdeTargets(this.cwdOption));
           return `${stackCommand} repl${this.getStartOptions(' --ghci-options "', '"')} ${target}`;
         } else if (wst === 'cabal') {
-          let target = this.ghciOptions.target || await pickTarget(await getCabalTargets('configure'));
+          let target = this.ghciOptions.target || await pickTarget(await getCabalTargets('configure', this.cwdOption));
           return `cabal repl${this.getStartOptions(' --ghc-options "', '"')} ${target}`;
         }
         else if (wst === 'cabal new') {
-          let target = this.ghciOptions.target || await pickTarget(await getCabalTargets('new-configure'));
+          let target = this.ghciOptions.target || await pickTarget(await getCabalTargets('new-configure', this.cwdOption));
           return `cabal new-repl ${this.getStartOptions(' --ghc-options "', '"')} ${target}`;
         }
         else if (wst === 'cabal v2') {
-          let target = this.ghciOptions.target || await pickTarget(await getCabalTargets('v2-configure'));
+          let target = this.ghciOptions.target || await pickTarget(await getCabalTargets('v2-configure', this.cwdOption));
           return `cabal v2-repl ${this.getStartOptions(' --ghc-options "', '"')} ${target}`;
         }
         else if (wst === 'bare-stack') {
@@ -199,7 +151,7 @@ export class Session implements vscode.Disposable {
         this.moduleMap.set(fullPath.toLowerCase(), module);
       }
     }
-    await this.ghci.sendCommand(':module');
+    // await this.ghci.sendCommand(':module');
     return modules;
   }
 

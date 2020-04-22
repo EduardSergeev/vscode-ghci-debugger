@@ -31,7 +31,7 @@ export default class Debugger {
     }
 
     context.subscriptions.push(
-      vscode.debug.registerDebugConfigurationProvider('ghci', new ConfigurationProvider()),
+      vscode.debug.registerDebugConfigurationProvider('ghci', new ConfigurationProvider(ext, ghci)),
       vscode.debug.registerDebugAdapterDescriptorFactory('ghci', new InlineDebugAdapterFactory())
     );
   }

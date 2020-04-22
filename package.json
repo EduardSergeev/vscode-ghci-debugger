@@ -2,7 +2,7 @@
   "name": "ghci-debugger",
   "displayName": "Bare GHCi Debugger",
   "description": "Pure TypeScript adapter to GHCi debugger",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "Edka",
   "repository": {
     "url": "https://github.com/EduardSergeev/vscode-ghci-debugger"
@@ -116,10 +116,7 @@
         "runtime": "node",
         "configurationAttributes": {
           "launch": {
-            "required": [
-              "module",
-              "function"
-            ],
+            "required": [],
             "properties": {
               "target": {
                 "type": "string",
@@ -129,36 +126,26 @@
               "module": {
                 "type": "string",
                 "description": "Target's module to debug",
-                "default": "Main"
+                "default": null
               },
               "function": {
                 "type": "string",
                 "description": "Module's function to debug",
-                "default": "main"
+                "defaul": null
               },
               "stopOnEntry": {
                 "type": "boolean",
                 "description": "Automatically stop after launch.",
-                "default": true
+                "default": false
               },
               "trace": {
                 "type": "boolean",
                 "description": "Enable logging of the Debug Adapter Protocol.",
-                "default": true
+                "default": false
               }
             }
           }
-        },
-        "initialConfigurations": [
-          {
-            "type": "ghci",
-            "request": "launch",
-            "name": "Main.main",
-            "module": "Main",
-            "function": "main",
-            "stopOnEntry": false
-          }
-        ]
+        }
       }
     ]
   },
