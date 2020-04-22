@@ -1,6 +1,14 @@
 # Change Log
 All notable changes to the "GHCi Debugger" extension will be documented in this file.
 
+## [0.3.0] - 2020-04-22
+### Added
+* Selection of the test target (if not configured in `launch.json`)
+### Fixed
+* Statup with stack & cabal
+* GHCi output handling (using custom prompt instead of "barrier")
+* Ranges with "end" part
+
 ## [0.2.0] - 2020-04-21
 ### Added
 * Copy/paste relevant [Simple GHC (Haskell) Integration](https://github.com/dramforever/vscode-ghc-simple) into project since the project is not going to support required public API just yet.
