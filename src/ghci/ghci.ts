@@ -21,16 +21,14 @@ interface PendingCommand extends StrictCommandConfig {
 }
 
 export class GhciOptions {
+  target?: string;
   startOptions?: string;
-  reloadCommands?: string[] = [
-    ":set -fno-code",
-    ":set +c"
-  ];
+  reloadCommands?: string[];
   startupCommands?: {
     all?: string[];
     bare?: string[];
     custom?: string[];
-  } = {};
+  };
 }
 
 export class GhciManager implements Disposable {
@@ -60,24 +58,13 @@ export class GhciManager implements Disposable {
   }
 
   checkDisposed() {
-    if (this.wasDisposed) { throw 'ghci already disposed'; }
+    if (this.wasDisposed) {
+      throw new Error('ghci already disposed');
+    }
   }
 
   outputLine(line: string) {
     this.ext.outputChannel?.appendLine(line);
-  }
-
-  idle() {
-    this.ext.statusBar?.update(this, {
-      status: 'idle'
-    });
-  }
-
-  busy(info: string | null = null) {
-    this.ext.statusBar?.update(this, {
-      status: 'busy',
-      info
-    });
   }
 
   async start(): Promise<child_process.ChildProcess> {
@@ -185,8 +172,6 @@ export class GhciManager implements Disposable {
       } else {
         this.currentCommand.lines.push(line);
       }
-
-      this.handleStatusUpdate(line);
     }
   }
 
@@ -198,31 +183,11 @@ export class GhciManager implements Disposable {
       this.pendingCommands[ 0 ].reject('cancelled');
       this.pendingCommands.shift();
     }
-
-    if (this.pendingCommands.length === 0) {
-      this.idle();
-    }
-  }
-
-  handleStatusUpdate(line: string) {
-    {
-      const compilingRegex = /^(\[\d+ +of +\d+\]) Compiling ([^ ]+)/;
-      const match = line.match(compilingRegex);
-      if (match) {
-        this.busy(`${ match[ 1 ] } ${ match[ 2 ] }`);
-      }
-    }
-    {
-      if (line.startsWith('Collecting type info for')) {
-        this.busy('Collecting type info');
-      }
-    }
   }
 
   launchCommand({ commands, info, resolve, reject }: PendingCommand) {
     const barrier = '===ghci_barrier_' + Math.random().toString() + '===';
     this.currentCommand = { resolve, reject, barrier, lines: [] };
-    this.busy(info);
 
     if (commands.length > 0) {
       this.outputLine(`    -> ${ commands[ 0 ] }`);
@@ -256,7 +221,6 @@ export class GhciManager implements Disposable {
   dispose() {
     this.wasDisposed = true;
 
-    this.ext.statusBar?.remove(this);
     if (this.proc !== null) {
       this.proc.kill();
       this.proc = null;

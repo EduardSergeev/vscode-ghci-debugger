@@ -14,7 +14,6 @@ export default class Debugger {
     const ext = {
       context,
       outputChannel: outputChannel,
-      statusBar: null,
       documentManagers: new Map(),
       workspaceManagers: new Map(),
       workspaceTypeMap: new Map(),

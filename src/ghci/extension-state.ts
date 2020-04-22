@@ -1,7 +1,6 @@
 import * as child_process from 'child_process';
 import * as vscode from 'vscode';
 import { Session } from './session';
-import { StatusBar } from './status-bar';
 import { GhciOptions } from './ghci';
 
 export type HaskellWorkspaceType = 'custom-workspace' | 'custom-file' | 'cabal' | 'cabal new' | 'cabal v2' | 'stack' | 'bare-stack' | 'bare';
@@ -9,7 +8,6 @@ export type HaskellWorkspaceType = 'custom-workspace' | 'custom-file' | 'cabal' 
 export interface ExtensionState {
   context: vscode.ExtensionContext;
   outputChannel?: vscode.OutputChannel;
-  statusBar?: StatusBar;
   workspaceTypeMap: Map<vscode.WorkspaceFolder, Promise<HaskellWorkspaceType>>;
   documentManagers: Map<vscode.TextDocument, Session>;
   workspaceManagers: Map<vscode.WorkspaceFolder, Session>;
@@ -90,7 +88,7 @@ function hasStack(cwd?: string): Promise<boolean> {
 
 export async function computeFileType(): Promise<HaskellWorkspaceType> {
   if (await hasStack()) {
-    return 'bare-stack'
+    return 'bare-stack';
   }
   else {
     return 'bare';
@@ -99,13 +97,13 @@ export async function computeFileType(): Promise<HaskellWorkspaceType> {
 
 export async function computeWorkspaceType(folder: vscode.WorkspaceFolder): Promise<HaskellWorkspaceType> {
   const customCommand =
-    vscode.workspace.getConfiguration('ghcSimple', folder.uri).replCommand;
+    vscode.workspace.getConfiguration('ghci-debugger', folder.uri).replCommand;
 
   if (customCommand !== "") {
     const customScope =
-      vscode.workspace.getConfiguration('ghcSimple', folder.uri).replScope;
+      vscode.workspace.getConfiguration('ghci-debugger', folder.uri).replScope;
 
-    if (customScope == "workspace") {
+    if (customScope === "workspace") {
       return 'custom-workspace';
     }
     else {
@@ -114,7 +112,7 @@ export async function computeWorkspaceType(folder: vscode.WorkspaceFolder): Prom
   }
 
   const oldConfigType =
-    vscode.workspace.getConfiguration('ghcSimple', folder.uri).workspaceType as
+    vscode.workspace.getConfiguration('ghci-debugger', folder.uri).workspaceType as
     HaskellWorkspaceType | 'detect';
 
   if (oldConfigType !== 'detect') { return oldConfigType; }
@@ -134,7 +132,7 @@ export async function computeWorkspaceType(folder: vscode.WorkspaceFolder): Prom
   }
 
   if (await hasStack(folder.uri.fsPath)) {
-    return 'bare-stack'
+    return 'bare-stack';
   }
   else {
     return 'bare';

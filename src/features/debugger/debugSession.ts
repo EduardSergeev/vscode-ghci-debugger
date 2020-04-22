@@ -76,9 +76,9 @@ export default class DebugSession extends LoggingDebugSession {
         // ],
       }
     );
-    this.session.reload();
+    await this.session.reload();
     await this.session.loading;
-    await this.session.loadInterpreted(vscode.window.activeTextEditor.document.uri);
+    // await this.session.loadInterpreted(vscode.window.activeTextEditor.document.uri);
 
     this.sendEvent(new InitializedEvent());
     // wait until configuration has finished (and configurationDoneRequest has been called)
@@ -89,8 +89,11 @@ export default class DebugSession extends LoggingDebugSession {
     );
 
     this.session.ghci.sendCommand(
-      args.stopOnEntry ? `:step ${ args.function }` : `:trace ${ args.function }`,
-      { info: "Starting"}
+      args.noDebug ?
+        args.function :
+        args.stopOnEntry ?
+          `:step ${ args.function }` :
+          `:trace ${ args.function }`
     ).then(response => this.didStop(response));
 
     this.sendResponse(response);
@@ -102,17 +105,19 @@ export default class DebugSession extends LoggingDebugSession {
     // await this.session.ghci.sendCommand(
     //   `:add *${source.path}`
     // );
-    const modules = (await this.session.ghci.sendCommand(
-      `:show modules`
-    )).join('\n');
+    // const modules = (await this.session.ghci.sendCommand(
+    //   `:show modules`
+    // )).join('\n');
 
-    let module;
-    for(let match, pattern = /^([^ ]+)\s+\( (.+), .+ \)$/gm; match = pattern.exec(modules);) {
-      if(match[2].toLowerCase() === source.path.toLowerCase()) {
-        module = match[1];
-        break;
-      }
-    }
+    // let module;
+    // for(let match, pattern = /^([^ ]+)\s+\( (.+), .+ \)$/gm; match = pattern.exec(modules);) {
+    //   if(match[2].toLowerCase() === source.path.toLowerCase()) {
+    //     module = match[1];
+    //     break;
+    //   }
+    // }
+
+    const module = this.session.getModuleName(source.path.toLowerCase());
 
     // set breakpoint locations
     this.breakpoints = [];
@@ -199,7 +204,7 @@ export default class DebugSession extends LoggingDebugSession {
         const frame = <DebugProtocol.StackFrame>new StackFrame(
             Number(index),
             name,
-            new Source(basename(path), path),
+            new Source(basename(path), isAbsolute(path) ? path : join(this.rootDir, path)),
             Number(line),
             Number(column),
           );
@@ -239,9 +244,9 @@ export default class DebugSession extends LoggingDebugSession {
         if (name === 'it') {
           continue;
         }
-        await this.session.ghci.sendCommand(
-          `:force ${name}`
-        );
+        // await this.session.ghci.sendCommand(
+        //   `:force ${name}`
+        // );
         const lines = await this.session.ghci.sendCommand(
           `:print ${name}`
         );

@@ -23,7 +23,7 @@ export interface Session {
   loading: Promise<void>;
   ghci: GhciManager;
   reload(): Promise<string[]>;
-  loadInterpreted(uri: Uri, token?: CancellationToken): Promise<string[]>;
+  getModuleName(filename: string): string;
 }
 
 export interface GhciManager {

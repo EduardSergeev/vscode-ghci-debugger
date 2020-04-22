@@ -35,12 +35,83 @@
           "default": true,
           "scope": "resource",
           "description": "Enable debugger feature"
+        },
+        "ghci-debugger.replCommand": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "markdownDescription": "The command used to start GHCi. `$stack_ide_targets` will be replaced by the output of `stack ide targets`. Leave blank for auto detection. When set, overrides the deprecated `ghci-debugger.workspaceType`. If you set this, please also set `ghci-debugger.replScope` to an appropriate value."
+        },
+        "ghci-debugger.replScope": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "file"
+          ],
+          "default": "workspace",
+          "markdownDescription": "Whether GHCi should be started for a project or individual files. **Note**: This option has no effect when `ghci-debugger.replCommand` is set to empty string for auto detection."
+        },
+        "ghci-debugger.startupCommands.all": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "System.IO.hSetBuffering System.IO.stderr System.IO.NoBuffering",
+            "System.IO.hSetBuffering System.IO.stdout System.IO.NoBuffering",
+            ":set -fno-diagnostics-show-caret -fdiagnostics-color=never -ferror-spans",
+            ":set -fdefer-type-errors -fdefer-typed-holes -fdefer-out-of-scope-variables",
+            ":seti -fno-defer-type-errors -fno-defer-typed-holes -fno-defer-out-of-scope-variables",
+            ":set -haddock",
+            ":set -fno-hide-source-paths",
+            ":set -Wno-error=missing-home-modules"
+          ],
+          "scope": "resource",
+          "markdownDescription": "GHCi commands on startup to use for all workspace types. The default value is for use within vscode-ghc-simple and you can customize these if needed. Since these might be updated in the future, Custom commands should go to `ghci-debugger.startupCommands.custom`"
+        },
+        "ghci-debugger.startupCommands.bare": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            ":set -Wall",
+            ":seti -Wno-type-defaults"
+          ],
+          "scope": "resource",
+          "markdownDescription": "GHCi commands on startup to use for 'bare' workspace types. The default value is for use within vscode-ghc-simple and you can customize these if needed. Since these might be updated in the future, Custom commands should go to `ghci-debugger.startupCommands.custom`"
+        },
+        "ghci-debugger.startupCommands.custom": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "resource",
+          "markdownDescription": "Custom GHCi commands on startup"
+        },
+        "ghci-debugger.workspaceType": {
+          "type": "string",
+          "default": "detect",
+          "markdownDescription": "*This option is deprecated.* See `ghcSimple.replCommand` and `ghcSimple.replScope`.",
+          "scope": "resource",
+          "enum": [
+            "detect",
+            "stack",
+            "cabal",
+            "cabal new",
+            "cabal v2",
+            "bare-stack",
+            "bare"
+          ]
         }
       }
     },
-    "breakpoints": [{
-      "language": "haskell"
-    }],
+    "breakpoints": [
+      {
+        "language": "haskell"
+      }
+    ],
     "debuggers": [
       {
         "type": "ghci",
@@ -54,14 +125,19 @@
               "function"
             ],
             "properties": {
+              "target": {
+                "type": "string",
+                "description": "Project's target to debug",
+                "default": null
+              },
               "module": {
                 "type": "string",
-                "description": "Module containing debugging function.",
+                "description": "Target's module to debug",
                 "default": "Main"
               },
               "function": {
                 "type": "string",
-                "description": "Debugging function.",
+                "description": "Module's function to debug",
                 "default": "main"
               },
               "stopOnEntry": {
