@@ -1,7 +1,5 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { ExtensionState } from './extension-state';
-import { Session } from './session';
 
 export const haskellSymbolRegex = /([A-Z][A-Za-z0-9_']*\.)*([!#$%&*+./<=>?@\^|\-~:]+|[A-Za-z_][A-Za-z0-9_']*)/;
 export const haskellReplLine = /^(\s*-{2,}\s+)?>>>(.*)$/;

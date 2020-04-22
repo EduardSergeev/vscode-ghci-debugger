@@ -1,11 +1,9 @@
-import * as fs from 'fs';
 import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 import { GhciManager, GhciOptions } from "./ghci";
 import { ExtensionState, HaskellWorkspaceType } from "./extension-state";
 import { stackCommand, reportError } from './utils';
 import Path = require('path');
-import { format } from 'url';
 
 export class Session implements vscode.Disposable {
   ghci: GhciManager;
@@ -128,7 +126,7 @@ export class Session implements vscode.Disposable {
           return cmd;
         } else if (wst === 'stack') {
           let target = this.ghciOptions.target || await pickTarget(await getStackIdeTargets());
-          return `${stackCommand} repl --test${this.getStartOptions(' --ghci-options "', '"')} ${target}`;
+          return `${stackCommand} repl${this.getStartOptions(' --ghci-options "', '"')} ${target}`;
         } else if (wst === 'cabal') {
           let target = this.ghciOptions.target || await pickTarget(await getCabalTargets('configure'));
           return `cabal repl${this.getStartOptions(' --ghc-options "', '"')} ${target}`;
@@ -167,7 +165,7 @@ export class Session implements vscode.Disposable {
         wst === 'bare-stack' || wst === 'bare' ? this.ghciOptions.startupCommands?.bare || cmds.bare : [],
         this.ghciOptions.startupCommands?.custom || cmds.custom
       );
-      await this.ghci.sendCommand(configureCommands);
+      configureCommands.forEach(c => this.ghci.sendCommand(c));
     }
   }
 

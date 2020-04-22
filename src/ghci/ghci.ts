@@ -81,10 +81,7 @@ export class GhciManager implements Disposable {
     this.stdout = this.makeReadline(this.proc.stdout);
     this.stderr = this.makeReadline(this.proc.stderr);
     this.proc.stdin.on('close', this.handleClose.bind(this));
-    await this.sendCommand([ ':set prompt ""', ':set prompt-cont ""' ], {
-      info: 'Starting'
-    });
-
+    this.sendCommand([':set prompt "λ\\n"']);
     return this.proc;
   }
 
@@ -105,7 +102,6 @@ export class GhciManager implements Disposable {
   }
 
   currentCommand: {
-    barrier: string,
     resolve: (result: string[]) => void,
     reject: (reason: any) => void,
     lines: string[]
@@ -161,7 +157,10 @@ export class GhciManager implements Disposable {
     if (this.currentCommand === null) {
       // Ignore stray line
     } else {
-      if (this.currentCommand.barrier === line) {
+      if (line[line.length - 1] === 'λ') {
+        if(line.length > 1) {
+          this.currentCommand.lines.push(line.slice(0, line.length - 1));
+        }
         this.currentCommand.resolve(this.currentCommand.lines);
         this.currentCommand = null;
         this.handleCancellation();
@@ -185,9 +184,8 @@ export class GhciManager implements Disposable {
     }
   }
 
-  launchCommand({ commands, info, resolve, reject }: PendingCommand) {
-    const barrier = '===ghci_barrier_' + Math.random().toString() + '===';
-    this.currentCommand = { resolve, reject, barrier, lines: [] };
+  launchCommand({ commands, resolve, reject }: PendingCommand) {
+    this.currentCommand = { resolve, reject, lines: [] };
 
     if (commands.length > 0) {
       this.outputLine(`    -> ${ commands[ 0 ] }`);
@@ -199,9 +197,6 @@ export class GhciManager implements Disposable {
     for (const c of commands) {
       this.proc.stdin.write(c + '\n');
     }
-
-    this.proc.stdin.write(`Prelude.putStrLn "\\n${ barrier }"\n`);
-
   }
 
   handleClose() {

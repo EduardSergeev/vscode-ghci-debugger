@@ -3,7 +3,8 @@ import { DebugProtocol } from 'vscode-debugprotocol';
 import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, logger, OutputEvent } from "vscode-debugadapter";
 import LaunchRequestArguments from './launchRequestArguments';
 import { basename, join, isAbsolute } from 'path';
-import { GhciApi, Session } from './ghci';
+import { GhciApi } from './ghci';
+import { Session } from '../../ghci/session';
 const { Subject } = require('await-notify');
 
 
@@ -64,12 +65,12 @@ export default class DebugSession extends LoggingDebugSession {
   }
 
   protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
-
     // make sure to 'Stop' the buffered logging if 'trace' is not set
     logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
 
     this.session = await this.ghci.startSession(
       vscode.window.activeTextEditor.document, {
+        target: args.target
         // startOptions: "-fexternal-interpreter -prof",
         // reloadCommands: [
         //   ":set -fbyte-code"
@@ -78,15 +79,19 @@ export default class DebugSession extends LoggingDebugSession {
     );
     await this.session.reload();
     await this.session.loading;
+    await this.session.ghci.sendCommand(
+      `:l ${args.module}`
+    );
+
     // await this.session.loadInterpreted(vscode.window.activeTextEditor.document.uri);
 
     this.sendEvent(new InitializedEvent());
     // wait until configuration has finished (and configurationDoneRequest has been called)
     await this.configurationDone.wait(100000);
 
-    await this.session.ghci.sendCommand(
-      `:module ${args.module}`
-    );
+    // await this.session.ghci.sendCommand(
+    //   `:module ${args.module}`
+    // );
 
     this.session.ghci.sendCommand(
       args.noDebug ?
@@ -102,21 +107,6 @@ export default class DebugSession extends LoggingDebugSession {
 
   protected async setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): Promise<void> {
     const source = args.source;
-    // await this.session.ghci.sendCommand(
-    //   `:add *${source.path}`
-    // );
-    // const modules = (await this.session.ghci.sendCommand(
-    //   `:show modules`
-    // )).join('\n');
-
-    // let module;
-    // for(let match, pattern = /^([^ ]+)\s+\( (.+), .+ \)$/gm; match = pattern.exec(modules);) {
-    //   if(match[2].toLowerCase() === source.path.toLowerCase()) {
-    //     module = match[1];
-    //     break;
-    //   }
-    // }
-
     const module = this.session.getModuleName(source.path.toLowerCase());
 
     // set breakpoint locations
@@ -139,7 +129,7 @@ export default class DebugSession extends LoggingDebugSession {
           breakpoint.endLine = Number(endLineColumn);
         } else if (endLineColumn) {
           breakpoint.endLine = Number(line);
-          breakpoint.endColumn = Number(endLineColumn);
+          breakpoint.endColumn = Number(endLineColumn) + 1;
         }
         return breakpoint;
       })
@@ -212,7 +202,7 @@ export default class DebugSession extends LoggingDebugSession {
           frame.endLine = Number(endLineColumn);
         } else if (endLineColumn) {
           frame.endLine = Number(line);
-          frame.endColumn = Number(endLineColumn);
+          frame.endColumn = Number(endLineColumn) + 1;
         }
         stackFrames.push(frame);
       }
@@ -258,6 +248,7 @@ export default class DebugSession extends LoggingDebugSession {
             type: type,
             value: value,
             evaluateName: name,
+            
             presentationHint: {
               kind: 'data',
               attributes: ['readOnly']
