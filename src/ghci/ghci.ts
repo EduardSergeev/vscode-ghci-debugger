@@ -2,6 +2,7 @@
 
 import * as child_process from 'child_process';
 import * as readline from 'readline';
+import * as process from 'process';
 import { Disposable, CancellationToken, OutputChannel } from "vscode";
 
 interface StrictCommandConfig {
@@ -57,11 +58,13 @@ export default class GhciManager implements Disposable {
 
   async start(): Promise<child_process.ChildProcess> {
     this.checkDisposed();
-
-    this.proc = child_process.spawn(this.command, {
+    // Otherwise Windows' cmd cannot display Unicode
+    const unicodeFix = process.platform === 'win32' ? 'cmd /c chcp 65001>nul && ' : '';
+    this.proc = child_process.spawn(unicodeFix + this.command, {
       ... this.options,
       stdio: 'pipe',
-      shell: true
+      shell: true,
+      windowsVerbatimArguments: true
     });
     this.proc.on('exit', () => { this.proc = null; });
     this.proc.on('error', () => { this.proc = null; });
@@ -140,12 +143,11 @@ export default class GhciManager implements Disposable {
   }
 
   handleLine(line: string) {
-    line = line.replace(/\ufffd/g, ''); // Workaround for invalid characters showing up in output
     this.outputLine(`ghci | ${ line }`);
     if (this.currentCommand === null) {
       // Ignore stray line
     } else {
-      if (line[line.length - 1] === 'λ') {
+      if (line.slice(-1) === 'λ') {
         if(line.length > 1) {
           this.currentCommand.lines.push(line.slice(0, line.length - 1));
         }
