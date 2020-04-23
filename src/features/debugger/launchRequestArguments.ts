@@ -5,7 +5,7 @@ import { Project } from '../../ghci/project';
 
 export default interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments, vscode.DebugConfiguration {
   project?: Project;
-  target?: string;
+  targets?: string;
   module?: string;
   function?: string;
   /** Automatically stop target after launch. If not specified, target does not stop. */

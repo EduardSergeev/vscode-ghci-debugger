@@ -51,9 +51,9 @@
                 "description": "Project's type to debug. Supported: `cabal`, `cabal new`, `cabal v2`, `stack`, `bare-stack`, `bare`",
                 "default": null
               },
-              "target": {
+              "targets": {
                 "type": "string",
-                "description": "Project's target to debug",
+                "description": "Project's target(s) to debug",
                 "default": null
               },
               "module": {

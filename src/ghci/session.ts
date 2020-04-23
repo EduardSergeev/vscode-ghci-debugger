@@ -20,7 +20,7 @@ export default class Session implements vscode.Disposable {
     public outputChannel: OutputChannel,
     public projectType: Project,
     public resource: Resource,
-    private target: string,
+    private targets: string,
     private ghciOptions: string[]) {
     this.ghci = null;
     this.starting = null;
@@ -68,27 +68,30 @@ export default class Session implements vscode.Disposable {
       this.checkDisposed();
       const wst = this.projectType;
 
+      const ghciParams = (prefix?: string, postfix?: string) =>
+        this.ghciOptions ? `${prefix || ''}${this.ghciOptions}${postfix || ''}` : "";
+
       const cmd = await (async () => {
         if (wst === 'stack') {
-          return `${stackCommand} repl${this.getStartOptions(' --ghci-options "', '"')} ${this.target}`;
+          return `${stackCommand} repl${ghciParams(' --ghci-options "', '"')} ${this.targets}`;
         } else if (wst === 'cabal') {
-          return `cabal repl${this.getStartOptions(' --ghc-options "', '"')} ${this.target}`;
+          return `cabal repl${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
         }
         else if (wst === 'cabal new') {
-          return `cabal new-repl ${this.getStartOptions(' --ghc-options "', '"')} ${this.target}`;
+          return `cabal new-repl ${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
         }
         else if (wst === 'cabal v2') {
-          return `cabal v2-repl ${this.getStartOptions(' --ghc-options "', '"')} ${this.target}`;
+          return `cabal v2-repl ${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
         }
         else if (wst === 'bare-stack') {
-          return `${stackCommand} exec ghci ${this.target}${this.getStartOptions(' -- ')}`;
+          return `${stackCommand} exec ghci ${this.targets}${ghciParams(' -- ')}`;
         }
         else if (wst === 'bare') {
-          return `ghci ${this.target}${this.getStartOptions(' ')}`;
+          return `ghci ${this.targets}${ghciParams(' ')}`;
         }
       })();
 
-      this.outputChannel.appendLine(`Starting GHCi with: ${ JSON.stringify(cmd) }`);
+      this.outputChannel.appendLine(`Starting GHCi with: ${JSON.stringify(cmd)}`);
       this.outputChannel.appendLine(
         `(Under ${
         this.cwdOption.cwd === undefined
@@ -131,12 +134,6 @@ export default class Session implements vscode.Disposable {
 
   getModuleName(filename: string): string {
     return this.moduleMap.get(filename);
-  }
-
-  getStartOptions(prefix?: string, postfix?: string): string {
-    return this.ghciOptions ?
-      `${prefix || ''}${this.ghciOptions}${postfix || ''}` :
-      "";
   }
 
   dispose() {

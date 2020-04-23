@@ -70,7 +70,7 @@ export default class DebugSession extends LoggingDebugSession {
       vscode.workspace.workspaceFolders[0] :
       vscode.window.activeTextEditor.document;
 
-    this.session = await this.sessionManager.getSession(resource, args.project, args.target);
+    this.session = await this.sessionManager.getSession(resource, args.project, args.targets);
     await this.session.reload();
     await this.session.loading;
     await this.session.ghci.sendCommand(

@@ -12,12 +12,12 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
   }
 
   async provideDebugConfigurations?(folder: WorkspaceFolder | undefined, token?: CancellationToken): Promise<LaunchRequestArguments[]> {
-    let config = {
+    let config: LaunchRequestArguments = {
       type: 'ghci',
       name: 'Launch',
       request: 'launch',
       project: null,
-      target: null,
+      targets: null,
       module: null,
       function: null,
       stopOnEntry: false
@@ -26,17 +26,17 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
     try {
       config.project = await this.getProjectConfiguration(folder);
 
-      config.target = config.project &&
-        await this.getTarget(config.project, folder);
+      config.targets = config.project &&
+        await this.getTargets(config.project, folder);
 
-      config.module = config.target &&
+      config.module = config.targets &&
         await this.getModule(
-          await this.sessionManager.getSession(folder, config.project, config.target)
+          await this.sessionManager.getSession(folder, config.project, config.targets)
         );
 
       config.function = config.module &&
         await this.getFunction(
-          await this.sessionManager.getSession(folder, config.project, config.target),
+          await this.sessionManager.getSession(folder, config.project, config.targets),
           config.module
         );
     } catch { }
@@ -71,23 +71,23 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       } while (!config.project);
 
       do {
-        config.target = config.target || await this.getTarget(config.project, resource);
-        if(!config.target) {
+        config.targets = config.targets || await this.getTargets(config.project, resource);
+        if(!config.targets) {
           const choice = await vscode.window.showErrorMessage(
-            "Cannot find a target to debug",
-            'Select target',
+            "Please select at least one target to debug",
+            'Select target(s)',
             'Cancel debug'
           );
           if(choice === 'Cancel debug') {
             return undefined;
           }
         }
-      } while (!config.target);
+      } while (!config.targets);
 
       do {
         config.module = config.module ||
           await this.getModule(
-            await this.sessionManager.getSession(resource, config.project, config.target)
+            await this.sessionManager.getSession(resource, config.project, config.targets)
           );
         if(!config.module) {
           const choice = await vscode.window.showErrorMessage(
@@ -104,7 +104,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       do {
         config.function = config.function ||
           await this.getFunction(
-            await this.sessionManager.getSession(resource, config.project, config.target),
+            await this.sessionManager.getSession(resource, config.project, config.targets),
             config.module
           );
         if(!config.function) {
@@ -120,10 +120,10 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       } while (!config.function);
     } catch (error) {
       await vscode.window.showErrorMessage(
-        error.message,
+        `Error starting GHCi:\n${error}`,
         'Cancel debug'
       );
-      return undefined; // abort launch
+      config = undefined;
     }
     return config;
   }
@@ -142,7 +142,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       }
   }
 
-  private async getTarget(project: ConfiguredProject, resource: Resource): Promise<string | undefined> {
+  private async getTargets(project: ConfiguredProject, resource: Resource): Promise<string> {
     const folder = asWorkspaceFolder(resource);
     const targets = folder ? await (async () => {
       const resourceType = resource ? { cwd: resource.uri.fsPath } : {};
@@ -158,7 +158,10 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       throw new Error("Could not find any target to debug");
     }
     return targets.length > 1 ?
-      await vscode.window.showQuickPick(targets, { placeHolder: "Select project target to debug" }) :
+      await vscode.window.showQuickPick(targets, {
+        placeHolder: "Select project target(s) to debug",
+        canPickMany: true
+      }).then(ts => (ts || []).join(' ')) :
       targets[0];
   }
 

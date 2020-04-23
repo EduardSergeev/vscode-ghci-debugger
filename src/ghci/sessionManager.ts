@@ -2,30 +2,31 @@ import { OutputChannel, Disposable } from "vscode";
 import Session from "./session";
 import { Resource, asWorkspaceFolder } from "./resource";
 import { computeFileType, getWorkspaceType, ConfiguredProject } from "./project";
+import { equal } from "./utils";
 
 export default class SessionManager implements Disposable {
   private session?: Session;
   private resource?: Resource;
   private projectType?: ConfiguredProject;
-  private target?: string;
+  private targets: string;
   private ghciOptions?: string[];
 
   public constructor(
     private outputChannel: OutputChannel) {
   }
 
-  public async getSession(resource: Resource, projectType: ConfiguredProject ,target: string, ghciOptions: string[] = []): Promise<Session> {
+  public async getSession(resource: Resource, projectType: ConfiguredProject, targets: string, ghciOptions: string[] = []): Promise<Session> {
     ghciOptions = ghciOptions.sort();
     if(!this.session ||
       this.resource !== resource ||
       this.projectType !== projectType ||
-      this.target !== target ||
-      !this.compatibleOptions(ghciOptions)) {
+      this.targets !== targets ||
+      !equal(this.ghciOptions, ghciOptions)) {
         // Session does not exist or old session is not compatible with the new request
         this.dispose();
         this.resource = resource;
         this.projectType = projectType;
-        this.target = target;
+        this.targets = targets;
         this.ghciOptions = ghciOptions;
         this.session = await this.startSession(this.outputChannel);
     } 
@@ -43,13 +44,6 @@ export default class SessionManager implements Disposable {
     const type = folder ?
       await getWorkspaceType(this.projectType, folder) :
       await computeFileType();
-    return new Session(outputChannel, type, this.resource, this.target, ['-w'].concat(this.ghciOptions));
-  }
-
-  private compatibleOptions(ghciOptions?: string[]): Boolean {
-    return (
-      this.ghciOptions.every(ghciOptions.includes) &&
-      ghciOptions.every(this.ghciOptions.includes)
-    );
+    return new Session(outputChannel, type, this.resource, this.targets, ['-w'].concat(this.ghciOptions));
   }
 }

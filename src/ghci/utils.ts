@@ -67,3 +67,7 @@ export async function pickTarget(targets: string[]) {
     await vscode.window.showQuickPick(targets, { placeHolder: "Select target to debug" }) :
     targets[0];
 }
+
+export function equal(left: string[], right: string[]): Boolean {
+  return left.every(right.includes) && right.every(left.includes);
+}
