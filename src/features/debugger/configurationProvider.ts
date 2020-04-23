@@ -191,9 +191,17 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
     if (!items.length) {
       throw new Error("Could not find any function to debug");
     }
-    const item = items.length > 1 ?
-      await vscode.window.showQuickPick(items, { placeHolder: "Select function to debug" }) :
-      items[0];
+    const customLabel = 'λ>';
+    const custom = {
+      label: customLabel,
+      description: "Custom expression",
+      detail: 'Type in arbitrary expression to debug'
+    };
+    const item = await vscode.window.showQuickPick(items.concat([custom]), { placeHolder: "Select function to debug" });
+    if (item.label === customLabel) { 
+      const expression = await vscode.window.showInputBox({ value: 'putStrLn "Hello, world!"', prompt: 'Enter Haskell expression to debug', ignoreFocusOut: true });
+      item.label = expression;
+    }
     return item ? item.label : null;
   }
 }
