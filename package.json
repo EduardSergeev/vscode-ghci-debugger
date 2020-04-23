@@ -29,79 +29,7 @@
     "configuration": {
       "type": "object",
       "title": "GHCi Debugger configuration settings",
-      "properties": {
-        "ghci-debugger.feature.debugger": {
-          "type": "boolean",
-          "default": true,
-          "scope": "resource",
-          "description": "Enable debugger feature"
-        },
-        "ghci-debugger.replCommand": {
-          "type": "string",
-          "default": "",
-          "scope": "resource",
-          "markdownDescription": "The command used to start GHCi. `$stack_ide_targets` will be replaced by the output of `stack ide targets`. Leave blank for auto detection. When set, overrides the deprecated `ghci-debugger.workspaceType`. If you set this, please also set `ghci-debugger.replScope` to an appropriate value."
-        },
-        "ghci-debugger.replScope": {
-          "type": "string",
-          "enum": [
-            "workspace",
-            "file"
-          ],
-          "default": "workspace",
-          "markdownDescription": "Whether GHCi should be started for a project or individual files. **Note**: This option has no effect when `ghci-debugger.replCommand` is set to empty string for auto detection."
-        },
-        "ghci-debugger.startupCommands.all": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "System.IO.hSetBuffering System.IO.stderr System.IO.NoBuffering",
-            "System.IO.hSetBuffering System.IO.stdout System.IO.NoBuffering",
-            ":set -fdefer-type-errors -fdefer-typed-holes -fdefer-out-of-scope-variables",
-            ":set -fno-hide-source-paths",
-            ":set -Wno-error=missing-home-modules"
-          ],
-          "scope": "resource",
-          "markdownDescription": "GHCi commands on startup to use for all workspace types. The default value is for use within vscode-ghc-simple and you can customize these if needed. Since these might be updated in the future, Custom commands should go to `ghci-debugger.startupCommands.custom`"
-        },
-        "ghci-debugger.startupCommands.bare": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            ":set -Wno-type-defaults"
-          ],
-          "scope": "resource",
-          "markdownDescription": "GHCi commands on startup to use for 'bare' workspace types. The default value is for use within vscode-ghc-simple and you can customize these if needed. Since these might be updated in the future, Custom commands should go to `ghci-debugger.startupCommands.custom`"
-        },
-        "ghci-debugger.startupCommands.custom": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "scope": "resource",
-          "markdownDescription": "Custom GHCi commands on startup"
-        },
-        "ghci-debugger.workspaceType": {
-          "type": "string",
-          "default": "detect",
-          "markdownDescription": "*This option is deprecated.* See `ghcSimple.replCommand` and `ghcSimple.replScope`.",
-          "scope": "resource",
-          "enum": [
-            "detect",
-            "stack",
-            "cabal",
-            "cabal new",
-            "cabal v2",
-            "bare-stack",
-            "bare"
-          ]
-        }
-      }
+      "properties": {}
     },
     "breakpoints": [
       {
@@ -118,6 +46,11 @@
           "launch": {
             "required": [],
             "properties": {
+              "project": {
+                "type": "string",
+                "description": "Project's type to debug. Supported: `cabal`, `cabal new`, `cabal v2`, `stack`, `bare-stack`, `bare`",
+                "default": null
+              },
               "target": {
                 "type": "string",
                 "description": "Project's target to debug",

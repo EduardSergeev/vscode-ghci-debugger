@@ -19,17 +19,7 @@ interface PendingCommand extends StrictCommandConfig {
   reject: (reason: any) => void;
 }
 
-export class GhciOptions {
-  startOptions?: string = '-w';
-  reloadCommands?: string[];
-  startupCommands?: {
-    all?: string[];
-    bare?: string[];
-    custom?: string[];
-  };
-}
-
-export class GhciManager implements Disposable {
+export default class GhciManager implements Disposable {
   proc: child_process.ChildProcess | null;
   command: string;
   options: any;

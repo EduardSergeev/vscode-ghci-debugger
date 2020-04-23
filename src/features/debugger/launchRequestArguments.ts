@@ -1,7 +1,10 @@
+import * as vscode from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
+import { Project } from '../../ghci/project';
 
 
-export default interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
+export default interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments, vscode.DebugConfiguration {
+  project?: Project;
   target?: string;
   module?: string;
   function?: string;

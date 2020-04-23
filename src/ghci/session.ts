@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
+import * as Path from 'path';
 import { OutputChannel } from 'vscode';
-import { GhciManager, GhciOptions } from "./ghci";
-import { stackCommand, reportError, getStackIdeTargets, pickTarget, getCabalTargets, HaskellWorkspaceType, computeFileType, computeWorkspaceType } from './utils';
+import GhciManager from "./ghci";
+import { stackCommand, reportError } from './utils';
 import { Resource, asWorkspaceFolder } from './resource';
-import Path = require('path');
+import { Project } from './project';
 
-export class Session implements vscode.Disposable {
+export default class Session implements vscode.Disposable {
   ghci: GhciManager;
   starting: Promise<void> | null;
   loading: Promise<void>;
@@ -17,10 +18,10 @@ export class Session implements vscode.Disposable {
 
   constructor(
     public outputChannel: OutputChannel,
-    public workspaceType: HaskellWorkspaceType,
+    public projectType: Project,
     public resource: Resource,
     private target: string,
-    private ghciOptions: GhciOptions = new GhciOptions) {
+    private ghciOptions: string[]) {
     this.ghci = null;
     this.starting = null;
     this.loading = null;
@@ -64,18 +65,11 @@ export class Session implements vscode.Disposable {
 
   async startP() {
     if (this.ghci === null) {
-      const wst = this.workspaceType;
-      
       this.checkDisposed();
+      const wst = this.projectType;
+
       const cmd = await (async () => {
-        if (wst === 'custom-workspace' || wst === 'custom-file') {
-          let cmd = vscode.workspace.getConfiguration('ghci-debugger', this.resource).replCommand;
-          if (cmd.indexOf('$stack_ide_targets') !== -1) {
-            const sit = await getStackIdeTargets(this.cwdOption);
-            cmd.replace(/\$stack_ide_targets/g, sit.join(' '));
-          }
-          return cmd;
-        } else if (wst === 'stack') {
+        if (wst === 'stack') {
           return `${stackCommand} repl${this.getStartOptions(' --ghci-options "', '"')} ${this.target}`;
         } else if (wst === 'cabal') {
           return `cabal repl${this.getStartOptions(' --ghc-options "', '"')} ${this.target}`;
@@ -101,18 +95,11 @@ export class Session implements vscode.Disposable {
           ? 'default cwd'
           : `cwd ${ this.cwdOption.cwd }` })`);
 
-      this.checkDisposed();
       this.ghci = new GhciManager(
         cmd,
         this.cwdOption,
-        this.outputChannel);
-      const cmds = vscode.workspace.getConfiguration('ghci-debugger', this.resource).startupCommands;
-      const configureCommands = [].concat(
-        this.ghciOptions.startupCommands?.all || cmds.all,
-        wst === 'bare-stack' || wst === 'bare' ? this.ghciOptions.startupCommands?.bare || cmds.bare : [],
-        this.ghciOptions.startupCommands?.custom || cmds.custom
+        this.outputChannel
       );
-      configureCommands.forEach(c => this.ghci.sendCommand(c));
     }
   }
 
@@ -147,8 +134,8 @@ export class Session implements vscode.Disposable {
   }
 
   getStartOptions(prefix?: string, postfix?: string): string {
-    return this.ghciOptions.startOptions ?
-      `${ prefix || '' }${ this.ghciOptions.startOptions }${ postfix || '' }` :
+    return this.ghciOptions ?
+      `${prefix || ''}${this.ghciOptions}${postfix || ''}` :
       "";
   }
 

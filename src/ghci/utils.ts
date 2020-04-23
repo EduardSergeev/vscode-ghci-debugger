@@ -7,9 +7,6 @@ export const haskellReplLine = /^(\s*-{2,}\s+)?>>>(.*)$/;
 export const stackCommand = 'stack --no-terminal --color never';
 
 
-export type HaskellWorkspaceType = 'custom-workspace' | 'custom-file' | 'cabal' | 'cabal new' | 'cabal v2' | 'stack' | 'bare-stack' | 'bare';
-
-
 export const haskellSelector: vscode.DocumentSelector = [
   { language: 'haskell', scheme: 'file' },
   { language: 'literate haskell', scheme: 'file' }
@@ -69,75 +66,4 @@ export async function pickTarget(targets: string[]) {
   return targets.length > 1 ?
     await vscode.window.showQuickPick(targets, { placeHolder: "Select target to debug" }) :
     targets[0];
-}
-
-export function getWorkspaceType(folder: vscode.WorkspaceFolder): Promise<HaskellWorkspaceType> {
-  return computeWorkspaceType(folder);
-}
-
-export async function computeWorkspaceType(folder: vscode.WorkspaceFolder): Promise<HaskellWorkspaceType> {
-  const customCommand =
-    vscode.workspace.getConfiguration('ghci-debugger', folder.uri).replCommand;
-
-  if (customCommand !== "") {
-    const customScope =
-      vscode.workspace.getConfiguration('ghci-debugger', folder.uri).replScope;
-
-    if (customScope === "workspace") {
-      return 'custom-workspace';
-    }
-    else {
-      return 'custom-file';
-    }
-  }
-
-  const oldConfigType =
-    vscode.workspace.getConfiguration('ghci-debugger', folder.uri).workspaceType as
-    HaskellWorkspaceType | 'detect';
-
-  if (oldConfigType !== 'detect') { return oldConfigType; }
-
-  const find: (file: string) => Thenable<vscode.Uri[]> =
-    (file) => vscode.workspace.findFiles(
-      new vscode.RelativePattern(folder, file));
-
-  const isStack = await find('stack.yaml');
-  if (isStack.length > 0) {
-    return 'stack';
-  }
-
-  const isCabal = await find('*.cabal');
-  if (isCabal.length > 0) {
-    return 'cabal new';
-  }
-
-  if (await hasStack(folder.uri.fsPath)) {
-    return 'bare-stack';
-  }
-  else {
-    return 'bare';
-  }
-}
-
-function hasStack(cwd?: string): Promise<boolean> {
-  const cwdOpt = cwd === undefined ? {} : { cwd };
-  return new Promise<boolean>((resolve, reject) => {
-    child_process.exec(
-      'stack --help',
-      Object.assign({ timeout: 5000 }, cwdOpt),
-      (err) => {
-        if (err) { resolve(false); }
-        else { resolve(true); }
-      }
-    );
-  });
-}
-
-export async function computeFileType(): Promise<HaskellWorkspaceType> {
-  if (await hasStack()) {
-    return 'bare-stack';
-  }
-  else {
-    return 'bare';
-  }
 }

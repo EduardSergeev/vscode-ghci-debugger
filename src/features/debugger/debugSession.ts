@@ -1,10 +1,9 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, logger, OutputEvent } from "vscode-debugadapter";
 import LaunchRequestArguments from './launchRequestArguments';
-import { basename, join, isAbsolute } from 'path';
-import { GhciApi } from './ghci';
-import { Session } from '../../ghci/session';
+import Session from '../../ghci/session';
 import SessionManager from '../../ghci/sessionManager';
 const { Subject } = require('await-notify');
 
@@ -71,7 +70,7 @@ export default class DebugSession extends LoggingDebugSession {
       vscode.workspace.workspaceFolders[0] :
       vscode.window.activeTextEditor.document;
 
-    this.session = await this.sessionManager.getSession(resource, args.target);
+    this.session = await this.sessionManager.getSession(resource, args.project, args.target);
     await this.session.reload();
     await this.session.loading;
     await this.session.ghci.sendCommand(
@@ -179,11 +178,11 @@ export default class DebugSession extends LoggingDebugSession {
         /-(\d+)\s+:\s+(?:\[1m)?(.+?)(?:\[0m)?\s+\((.+):\((\d+),(\d+)\)-\((\d+),(\d+)\)\)/
       );
       if(match) {
-        const [, index, name, path, line, column, endLineColumn, endColumn] = match;
+        const [, index, name, modulePath, line, column, endLineColumn, endColumn] = match;
         const frame = <DebugProtocol.StackFrame>new StackFrame(
             Number(index),
             name,
-            new Source(basename(path), isAbsolute(path) ? path : join(this.rootDir, path)),
+            new Source(path.basename(modulePath), path.isAbsolute(modulePath) ? modulePath : path.join(this.rootDir, modulePath)),
             Number(line),
             Number(column),
           );
@@ -356,7 +355,7 @@ export default class DebugSession extends LoggingDebugSession {
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):(\d+):(\d+)/m) ||
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/m);
     if (match) {
-      const [ , out, name, path, line, column ] = match;
+      const [ , out, name, modPath, line, column ] = match;
       if(out) {
         this.sendEvent(new OutputEvent(out));
       }
@@ -364,7 +363,7 @@ export default class DebugSession extends LoggingDebugSession {
         new StackFrame(
           Number(0),
           name.split('.').slice(-1)[0],
-          new Source(basename(path), isAbsolute(path) ? path : join(this.rootDir, path)),
+          new Source(path.basename(modPath), path.isAbsolute(modPath) ? modPath : path.join(this.rootDir, modPath)),
           Number(line),
           Number(column)
         );

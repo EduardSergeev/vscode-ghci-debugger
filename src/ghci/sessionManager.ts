@@ -1,40 +1,55 @@
-import { OutputChannel, Disposable, WorkspaceFolder } from "vscode";
-import { Session } from "./session";
-import { GhciOptions } from "./ghci";
-import { computeFileType, computeWorkspaceType } from './utils';
+import { OutputChannel, Disposable } from "vscode";
+import Session from "./session";
 import { Resource, asWorkspaceFolder } from "./resource";
+import { computeFileType, getWorkspaceType, ConfiguredProject } from "./project";
 
 export default class SessionManager implements Disposable {
   private session?: Session;
   private resource?: Resource;
+  private projectType?: ConfiguredProject;
   private target?: string;
+  private ghciOptions?: string[];
 
   public constructor(
     private outputChannel: OutputChannel) {
   }
 
-  public async getSession(resource: Resource, target: string): Promise<Session> {
-    if(!this.session || this.resource !== resource || this.target !== target) {
-      // Session does not exist or old session is not compatible with the new request
-      this.dispose();
-      this.resource = resource;
-      this.target = target;
-      this.session = await this.startSession(this.outputChannel, resource, target);
+  public async getSession(resource: Resource, projectType: ConfiguredProject ,target: string, ghciOptions: string[] = []): Promise<Session> {
+    ghciOptions = ghciOptions.sort();
+    if(!this.session ||
+      this.resource !== resource ||
+      this.projectType !== projectType ||
+      this.target !== target ||
+      !this.compatibleOptions(ghciOptions)) {
+        // Session does not exist or old session is not compatible with the new request
+        this.dispose();
+        this.resource = resource;
+        this.projectType = projectType;
+        this.target = target;
+        this.ghciOptions = ghciOptions;
+        this.session = await this.startSession(this.outputChannel);
     } 
     return this.session;
-  }
-
-  private async startSession(outputChannel: OutputChannel, resource: Resource, target: string, ghciOptions: GhciOptions = new GhciOptions): Promise<Session> {
-    const folder = asWorkspaceFolder(resource);
-    const type = folder ?
-      await computeWorkspaceType(folder) :
-      await computeFileType();
-    return new Session(outputChannel, type, resource, target, ghciOptions);
   }
 
   public dispose() {
     const session = this.session;
     this.session = null;
     session?.dispose();
+  }
+
+  private async startSession(outputChannel: OutputChannel): Promise<Session> {
+    const folder = asWorkspaceFolder(this.resource);
+    const type = folder ?
+      await getWorkspaceType(this.projectType, folder) :
+      await computeFileType();
+    return new Session(outputChannel, type, this.resource, this.target, ['-w'].concat(this.ghciOptions));
+  }
+
+  private compatibleOptions(ghciOptions?: string[]): Boolean {
+    return (
+      this.ghciOptions.every(ghciOptions.includes) &&
+      ghciOptions.every(this.ghciOptions.includes)
+    );
   }
 }
