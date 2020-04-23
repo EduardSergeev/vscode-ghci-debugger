@@ -19,12 +19,12 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       project: null,
       targets: null,
       module: null,
-      function: null,
+      expression: null,
       stopOnEntry: false
     };
 
     try {
-      config.project = await this.getProjectConfiguration(folder);
+      config.project = await this.getProject(folder);
 
       config.targets = config.project &&
         await this.getTargets(config.project, folder);
@@ -34,7 +34,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
           await this.sessionManager.getSession(folder, config.project, config.targets)
         );
 
-      config.function = config.module &&
+      config.expression = config.module &&
         await this.getFunction(
           await this.sessionManager.getSession(folder, config.project, config.targets),
           config.module
@@ -57,10 +57,10 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
 
     try {
       do {
-        config.project = config.project || await this.getProjectConfiguration(folder);
+        config.project = config.project || await this.getProject(folder);
         if(!config.project) {
           const choice = await vscode.window.showErrorMessage(
-            "Cannot find a project to debug",
+            "Please select Haskell project type to start debugger with",
             'Select project',
             'Cancel debug'
           );
@@ -91,7 +91,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
           );
         if(!config.module) {
           const choice = await vscode.window.showErrorMessage(
-            'Cannot find a module to debug',
+            'Please select a module to debug',
             'Select module',
             'Cancel debug'
           );
@@ -102,14 +102,14 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       } while (!config.module);
 
       do {
-        config.function = config.function ||
+        config.expression = config.expression ||
           await this.getFunction(
             await this.sessionManager.getSession(resource, config.project, config.targets),
             config.module
           );
-        if(!config.function) {
+        if(!config.expression) {
           const choice = await vscode.window.showErrorMessage(
-            "Cannot find a function to debug",
+            "Please select function to debug",
             'Select function',
             'Cancel debug'
           );
@@ -117,7 +117,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
             return undefined;
           }
         }
-      } while (!config.function);
+      } while (!config.expression);
     } catch (error) {
       await vscode.window.showErrorMessage(
         `Error starting GHCi:\n${error}`,
@@ -128,16 +128,16 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
     return config;
   }
 
-  private async getProjectConfiguration(resource: Resource): Promise<Project | undefined> {
+  private async getProject(resource: Resource): Promise<Project | undefined> {
     const folder = asWorkspaceFolder(resource);
     if(folder) {
       const types = await getProjectConfigurations(folder);
 
       if (!types.length) {
-        throw new Error("Could not find any target to debug");
+        throw new Error("Could not find any Haskell to debug");
       }
       return types.length > 1 ?
-        await vscode.window.showQuickPick(types, { placeHolder: "Select project type to debug" }) :
+        await vscode.window.showQuickPick(types, { placeHolder: "Select Haskell project type to debug" }) :
         types[0];
       }
   }

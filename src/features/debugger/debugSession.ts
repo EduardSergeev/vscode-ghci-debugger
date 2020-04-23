@@ -83,10 +83,10 @@ export default class DebugSession extends LoggingDebugSession {
 
     this.session.ghci.sendCommand(
       args.noDebug ?
-        args.function :
+        args.expression :
         args.stopOnEntry ?
-          `:step ${ args.function }` :
-          `:trace ${ args.function }`
+          `:step ${ args.expression }` :
+          `:trace ${ args.expression }`
     ).then(response => this.didStop(response));
 
     this.sendResponse(response);

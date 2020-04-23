@@ -7,7 +7,7 @@ export default interface LaunchRequestArguments extends DebugProtocol.LaunchRequ
   project?: Project;
   targets?: string;
   module?: string;
-  function?: string;
+  expression?: string;
   /** Automatically stop target after launch. If not specified, target does not stop. */
   stopOnEntry?: boolean;
   /** enable logging the Debug Adapter Protocol */

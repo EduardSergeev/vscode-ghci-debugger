@@ -61,9 +61,9 @@
                 "description": "Target's module to debug",
                 "default": null
               },
-              "function": {
+              "expression": {
                 "type": "string",
-                "description": "Module's function to debug",
+                "description": "Haskell expression to debug",
                 "defaul": null
               },
               "stopOnEntry": {
