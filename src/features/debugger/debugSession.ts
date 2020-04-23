@@ -5,12 +5,12 @@ import LaunchRequestArguments from './launchRequestArguments';
 import { basename, join, isAbsolute } from 'path';
 import { GhciApi } from './ghci';
 import { Session } from '../../ghci/session';
+import SessionManager from '../../ghci/sessionManager';
 const { Subject } = require('await-notify');
 
 
 export default class DebugSession extends LoggingDebugSession {
   private rootDir: string;
-  private ghci: GhciApi;
   private session: Session;
   private configurationDone = new Subject();
 
@@ -20,9 +20,8 @@ export default class DebugSession extends LoggingDebugSession {
   private stackLevel: number;
   private exception: { type: string, lines: string[] };
 
-  public constructor(ghci: GhciApi) {
+  public constructor(private sessionManager: SessionManager) {
     super("ghci-debug.txt");
-    this.ghci = ghci;
     this.rootDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
   }
 
@@ -68,12 +67,11 @@ export default class DebugSession extends LoggingDebugSession {
     // make sure to 'Stop' the buffered logging if 'trace' is not set
     logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
 
-    this.session = await this.ghci.startSession(
-      vscode.window.activeTextEditor.document, {
-        target: args.target,
-        startOptions: "-w",
-      }
-    );
+    const resource = vscode.workspace.workspaceFolders ?
+      vscode.workspace.workspaceFolders[0] :
+      vscode.window.activeTextEditor.document;
+
+    this.session = await this.sessionManager.getSession(resource, args.target);
     await this.session.reload();
     await this.session.loading;
     await this.session.ghci.sendCommand(

@@ -1,17 +1,12 @@
 import * as vscode from 'vscode';
-import { DebugConfigurationProvider, WorkspaceFolder, DebugConfiguration, CancellationToken, ProviderResult } from "vscode";
-import { ExtensionState } from '../../ghci/extension-state';
+import { DebugConfigurationProvider, WorkspaceFolder, DebugConfiguration, CancellationToken } from "vscode";
 import { getWorkspaceType, getStackIdeTargets, getCabalTargets } from '../../ghci/utils';
-import { GhciApi } from './ghci';
 import { Session } from '../../ghci/session';
+import SessionManager from '../../ghci/sessionManager';
+import { Resource, asWorkspaceFolder } from '../../ghci/resource';
 
 export default class ConfigurationProvider implements DebugConfigurationProvider {
-  private ext: ExtensionState;
-  private ghci: GhciApi;
-
-  public constructor(ext: ExtensionState, ghci: GhciApi) {
-    this.ext = ext;
-    this.ghci = ghci;
+  public constructor(private sessionManager: SessionManager) {
   }
 
   async provideDebugConfigurations?(folder: WorkspaceFolder | undefined, token?: CancellationToken): Promise<DebugConfiguration[]> {
@@ -27,16 +22,9 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
 
     try {
       config.target = await this.getTarget(folder);
+      config.module = config.target && await this.getModule(await this.sessionManager.getSession(folder, config.target));
 
-      const session = config.target && await this.ghci.startSession(
-        vscode.window.activeTextEditor.document, {
-          target: config.target,
-          startOptions: "-w",
-        }
-      );
-      config.module = config.target && await this.getModule(session);
-
-      config.function = config.module && await this.getFunction(session, config.module);
+      config.function = config.module && await this.getFunction(await this.sessionManager.getSession(folder, config.target), config.module);
     } catch { }
 
     return [config];
@@ -51,9 +39,11 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
     config.request = config.request || 'launch';
     config.name = config.name || 'Launch';
 
+    const resource = folder || vscode.window.activeTextEditor.document;
+
     try {
       do {
-        config.target = config.target || await this.getTarget(folder);
+        config.target = config.target || await this.getTarget(resource);
         if(!config.target) {
           const choice = await vscode.window.showErrorMessage(
             "Cannot find a target to debug",
@@ -66,14 +56,8 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
         }
       } while (!config.target);
 
-      const session = await this.ghci.startSession(
-        vscode.window.activeTextEditor.document, {
-          target: config.target,
-          startOptions: "-w",
-        }
-      );
       do {
-        config.module = config.module || await this.getModule(session);
+        config.module = config.module || await this.getModule(await this.sessionManager.getSession(resource, config.target));
         if(!config.module) {
           const choice = await vscode.window.showErrorMessage(
             'Cannot find a module to debug',
@@ -87,7 +71,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       } while (!config.module);
 
       do {
-        config.function = config.function || await this.getFunction(session, config.module);
+        config.function = config.function || await this.getFunction(await this.sessionManager.getSession(resource, config.target), config.module);
         if(!config.function) {
           const choice = await vscode.window.showErrorMessage(
             "Cannot find a function to debug",
@@ -109,15 +93,19 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
     return config;
   }
 
-  private async getTarget(folder: WorkspaceFolder) {
-    const type = await getWorkspaceType(this.ext, folder);
-    const resourceType = folder ? { cwd: folder.uri.fsPath } : {};
-    const targets = 
-      type === 'stack' ?
-      await getStackIdeTargets(resourceType) :
-      ['cabal', 'cabal new', 'cabal v2'].includes(type) ?
-      await getCabalTargets('configure', resourceType) :
-      [''];
+  private async getTarget(resource: Resource) {
+    const folder = asWorkspaceFolder(resource);
+    const targets = folder ? await (async () => {
+      const type = await getWorkspaceType(folder);
+      const resourceType = resource ? { cwd: resource.uri.fsPath } : {};
+      return type === 'stack' ?
+        await getStackIdeTargets(resourceType) :
+        ['cabal', 'cabal new', 'cabal v2'].includes(type) ?
+        await getCabalTargets('configure', resourceType) :
+        [];
+    })() :
+    [resource.uri.fsPath];
+  
     if (!targets.length) {
       throw new Error("Could not find any target to debug");
     }

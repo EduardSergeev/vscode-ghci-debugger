@@ -1,20 +1,24 @@
 import * as vscode from 'vscode';
+import { OutputChannel } from 'vscode';
 import * as child_process from 'child_process';
-import { ExtensionState } from './extension-state';
 
 export const haskellSymbolRegex = /([A-Z][A-Za-z0-9_']*\.)*([!#$%&*+./<=>?@\^|\-~:]+|[A-Za-z_][A-Za-z0-9_']*)/;
 export const haskellReplLine = /^(\s*-{2,}\s+)?>>>(.*)$/;
 export const stackCommand = 'stack --no-terminal --color never';
+
+
+export type HaskellWorkspaceType = 'custom-workspace' | 'custom-file' | 'cabal' | 'cabal new' | 'cabal v2' | 'stack' | 'bare-stack' | 'bare';
+
 
 export const haskellSelector: vscode.DocumentSelector = [
   { language: 'haskell', scheme: 'file' },
   { language: 'literate haskell', scheme: 'file' }
 ];
 
-export function reportError(ext: ExtensionState, msg: string) {
+export function reportError(outputChannel: OutputChannel, msg: string) {
   return (err) => {
     console.error(`${ msg }: ${ err }`);
-    ext.outputChannel?.appendLine(`${ msg }: ${ err }`);
+    outputChannel.appendLine(`${ msg }: ${ err }`);
   };
 }
 
@@ -67,16 +71,9 @@ export async function pickTarget(targets: string[]) {
     targets[0];
 }
 
-export function getWorkspaceType(ext: ExtensionState, folder: vscode.WorkspaceFolder): Promise<HaskellWorkspaceType> {
-  if (!ext.workspaceTypeMap.has(folder)) {
-    ext.workspaceTypeMap.set(folder, computeWorkspaceType(folder));
-  }
-  return ext.workspaceTypeMap.get(folder);
+export function getWorkspaceType(folder: vscode.WorkspaceFolder): Promise<HaskellWorkspaceType> {
+  return computeWorkspaceType(folder);
 }
-
-
-export type HaskellWorkspaceType = 'custom-workspace' | 'custom-file' | 'cabal' | 'cabal new' | 'cabal v2' | 'stack' | 'bare-stack' | 'bare';
-
 
 export async function computeWorkspaceType(folder: vscode.WorkspaceFolder): Promise<HaskellWorkspaceType> {
   const customCommand =
@@ -125,10 +122,10 @@ export async function computeWorkspaceType(folder: vscode.WorkspaceFolder): Prom
 function hasStack(cwd?: string): Promise<boolean> {
   const cwdOpt = cwd === undefined ? {} : { cwd };
   return new Promise<boolean>((resolve, reject) => {
-    const cp = child_process.exec(
+    child_process.exec(
       'stack --help',
       Object.assign({ timeout: 5000 }, cwdOpt),
-      (err, stdout, stderr) => {
+      (err) => {
         if (err) { resolve(false); }
         else { resolve(true); }
       }

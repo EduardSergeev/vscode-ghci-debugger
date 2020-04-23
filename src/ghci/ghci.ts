@@ -2,8 +2,7 @@
 
 import * as child_process from 'child_process';
 import * as readline from 'readline';
-import { Disposable, CancellationToken } from "vscode";
-import { ExtensionState } from './extension-state';
+import { Disposable, CancellationToken, OutputChannel } from "vscode";
 
 interface StrictCommandConfig {
   token: CancellationToken;
@@ -21,8 +20,7 @@ interface PendingCommand extends StrictCommandConfig {
 }
 
 export class GhciOptions {
-  target?: string;
-  startOptions?: string;
+  startOptions?: string = '-w';
   reloadCommands?: string[];
   startupCommands?: {
     all?: string[];
@@ -37,15 +35,15 @@ export class GhciManager implements Disposable {
   options: any;
   stdout: readline.ReadLine;
   stderr: readline.ReadLine;
-  ext: ExtensionState;
+  outputChannel: OutputChannel;
 
   wasDisposed: boolean;
 
-  constructor(command: string, options: any, ext: ExtensionState) {
+  constructor(command: string, options: any, outputChannel: OutputChannel) {
     this.proc = null;
     this.command = command;
     this.options = options;
-    this.ext = ext;
+    this.outputChannel = outputChannel;
     this.wasDisposed = false;
   }
 
@@ -64,7 +62,7 @@ export class GhciManager implements Disposable {
   }
 
   outputLine(line: string) {
-    this.ext.outputChannel?.appendLine(line);
+    this.outputChannel?.appendLine(line);
   }
 
   async start(): Promise<child_process.ChildProcess> {
