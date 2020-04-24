@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { WorkspaceFolder } from 'vscode';
 import * as child_process from 'child_process';
+import { Resource, asWorkspaceFolder } from './resource';
 
 
 export type Project = 'cabal' | 'cabal new' | 'cabal v2' | 'stack' | 'bare-stack' | 'bare';
@@ -18,19 +19,23 @@ export async function getWorkspaceType(configuredProjectType: ConfiguredProject,
   );
 }
 
-export async function getProjectConfigurations(folder: WorkspaceFolder) {
+export async function getProjectConfigurations(resource: Resource) {
   const configurations = [];
+  const folder = asWorkspaceFolder(resource);
+  if(folder) {
+    if ((await find(folder, 'stack.yaml')).length) {
+      configurations.push('stack');
+    }
 
-  if ((await find(folder, 'stack.yaml')).length) {
-    configurations.push('stack');
-  }
+    if((await find(folder, '*.cabal')).length) {
+      configurations.push('cabal new');
+    }
 
-  if((await find(folder, '*.cabal')).length) {
-    configurations.push('cabal new');
-  }
-
-  if(await hasStack(folder.uri.fsPath)) {
-    configurations.push('bare-stack');
+    if(await hasStack(folder.uri.fsPath)) {
+      configurations.push('bare-stack');
+    }
+  } else {
+    configurations.push('bare');
   }
 
   return configurations;

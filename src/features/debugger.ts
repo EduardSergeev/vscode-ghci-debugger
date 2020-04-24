@@ -3,18 +3,25 @@ import { ProviderResult, DebugAdapterInlineImplementation, DebugAdapterDescripto
 import DebugSession from './debugger/debugSession';
 import ConfigurationProvider from './debugger/configurationProvider';
 import SessionManager from '../ghci/sessionManager';
+import ConsoleTerminal from './debugger/console';
 
 export default class Debugger {
 
   public activate(context: ExtensionContext) {
-
     const outputChannel = vscode.window.createOutputChannel('GHCi Debugger');
+
     const sessionManager = new SessionManager(outputChannel);
-    context.subscriptions.push(outputChannel, sessionManager);
+
+    const console = new ConsoleTerminal();
+    const terminal = vscode.window.createTerminal({
+      name: 'GHCi Debug Console',
+      pty: console
+    });
+    context.subscriptions.push(outputChannel, sessionManager, terminal);
 
     class InlineDebugAdapterFactory implements DebugAdapterDescriptorFactory {
       createDebugAdapterDescriptor(_session: vscode.DebugSession): ProviderResult<DebugAdapterDescriptor> {
-        return new DebugAdapterInlineImplementation(new DebugSession(sessionManager));
+        return new DebugAdapterInlineImplementation(new DebugSession(sessionManager, console, terminal));
       }
     }
 

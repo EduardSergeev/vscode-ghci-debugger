@@ -3,11 +3,12 @@
 import * as child_process from 'child_process';
 import * as readline from 'readline';
 import * as process from 'process';
-import { Disposable, CancellationToken, OutputChannel } from "vscode";
+import { Disposable, CancellationToken, OutputChannel, Event, EventEmitter } from "vscode";
 
 interface StrictCommandConfig {
   token: CancellationToken;
   info: string;
+  captureOutput: Boolean;
 }
 
 type CommandConfig = {
@@ -15,7 +16,8 @@ type CommandConfig = {
 };
 
 interface PendingCommand extends StrictCommandConfig {
-  commands: string[];
+  command: string;
+  captureOutput: Boolean;
   resolve: (result: string[]) => void;
   reject: (reason: any) => void;
 }
@@ -26,6 +28,8 @@ export default class GhciManager implements Disposable {
   options: any;
   stdout: readline.ReadLine;
   stderr: readline.ReadLine;
+  dataEmitter: EventEmitter<string>;
+  data: Event<string>;
   outputChannel: OutputChannel;
 
   wasDisposed: boolean;
@@ -36,6 +40,8 @@ export default class GhciManager implements Disposable {
     this.options = options;
     this.outputChannel = outputChannel;
     this.wasDisposed = false;
+    this.dataEmitter = new EventEmitter<string>();
+    this.data = this.dataEmitter.event;
   }
 
   makeReadline(stream): readline.ReadLine {
@@ -53,7 +59,7 @@ export default class GhciManager implements Disposable {
   }
 
   outputLine(line: string) {
-    this.outputChannel?.appendLine(line);
+    this.outputChannel.appendLine(line);
   }
 
   async start(): Promise<child_process.ChildProcess> {
@@ -69,10 +75,19 @@ export default class GhciManager implements Disposable {
     this.proc.on('exit', () => { this.proc = null; });
     this.proc.on('error', () => { this.proc = null; });
 
+    this.proc.stdout.on('data', (data) => {
+      if(this.currentCommand && this.currentCommand.captureOutput) {
+        this.outputChannel.appendLine(`data+ | ${data}`);
+        this.dataEmitter.fire(`${data}`);
+      } else {
+        this.outputChannel.appendLine(`data- | ${data}`);
+      }
+    });
     this.stdout = this.makeReadline(this.proc.stdout);
     this.stderr = this.makeReadline(this.proc.stderr);
+    
     this.proc.stdin.on('close', this.handleClose.bind(this));
-    this.sendCommand([':set prompt "λ\\n"']);
+    this.sendCommand(':set prompt "λ\\n"');
     return this.proc;
   }
 
@@ -95,13 +110,14 @@ export default class GhciManager implements Disposable {
   currentCommand: {
     resolve: (result: string[]) => void,
     reject: (reason: any) => void,
-    lines: string[]
+    lines: string[],
+    captureOutput: Boolean
   } | null = null;
 
   pendingCommands: PendingCommand[] = [];
 
   async sendCommand(
-    cmds: string | string[],
+    command: string,
     config: CommandConfig = {}):
     Promise<string[]> {
     if (config.token) {
@@ -109,14 +125,10 @@ export default class GhciManager implements Disposable {
         this.handleCancellation.bind(this)
       );
     }
-
-    const commands = (typeof cmds === 'string') ? [ cmds ] : cmds;
-
     if (this.proc === null) {
       await this.start();
     }
-
-    return this._sendCommand(commands, config);
+    return this._sendCommand(command, config);
   }
 
   sendData(data: string) {
@@ -124,20 +136,21 @@ export default class GhciManager implements Disposable {
   }
 
 
-  _sendCommand(commands: string[], config: CommandConfig = {}):
+  _sendCommand(command: string, config: CommandConfig = {}):
     Promise<string[]> {
     return new Promise((resolve, reject) => {
       this.checkDisposed();
 
       const nullConfig: StrictCommandConfig = {
         token: null,
-        info: null
+        info: null,
+        captureOutput: false
       };
 
       const pending: PendingCommand = {
         ...nullConfig,
         ...config,
-        commands, resolve, reject
+        command: command, resolve, reject
       };
       if (this.currentCommand === null) {
         this.launchCommand(pending);
@@ -148,7 +161,7 @@ export default class GhciManager implements Disposable {
   }
 
   handleLine(line: string) {
-    this.outputLine(`ghci | ${ line }`);
+    this.outputLine(`ghci | ${line}`);
     if (this.currentCommand === null) {
       // Ignore stray line
     } else {
@@ -171,27 +184,18 @@ export default class GhciManager implements Disposable {
 
   handleCancellation() {
     while (this.pendingCommands.length > 0
-      && this.pendingCommands[ 0 ].token
-      && this.pendingCommands[ 0 ].token.isCancellationRequested) {
-      this.outputLine(`Cancel ${ this.pendingCommands[ 0 ].commands }`);
-      this.pendingCommands[ 0 ].reject('cancelled');
+      && this.pendingCommands[0].token
+      && this.pendingCommands[0].token.isCancellationRequested) {
+      this.outputLine(`Cancel ${this.pendingCommands[0].command}`);
+      this.pendingCommands[0].reject('cancelled');
       this.pendingCommands.shift();
     }
   }
 
-  launchCommand({ commands, resolve, reject }: PendingCommand) {
-    this.currentCommand = { resolve, reject, lines: [] };
-
-    if (commands.length > 0) {
-      this.outputLine(`    -> ${ commands[ 0 ] }`);
-      for (const c of commands.slice(1)) {
-        this.outputLine(`    |> ${ c }`);
-      }
-    }
-
-    for (const c of commands) {
-      this.proc.stdin.write(c + '\n');
-    }
+  launchCommand({ command, captureOutput, resolve, reject }: PendingCommand) {
+    this.currentCommand = { resolve, reject, lines: [], captureOutput };
+    this.outputLine(`    -> ${command}`);
+    this.proc.stdin.write(`${command}\n`);
   }
 
   handleClose() {
