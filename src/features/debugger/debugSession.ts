@@ -1,16 +1,16 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, logger, OutputEvent } from "vscode-debugadapter";
 import LaunchRequestArguments from './launchRequestArguments';
-import { basename, join, isAbsolute } from 'path';
-import { GhciApi } from './ghci';
-import { Session } from '../../ghci/session';
+import Session from '../../ghci/session';
+import SessionManager from '../../ghci/sessionManager';
+import Configuration from './configuration';
 const { Subject } = require('await-notify');
 
 
 export default class DebugSession extends LoggingDebugSession {
   private rootDir: string;
-  private ghci: GhciApi;
   private session: Session;
   private configurationDone = new Subject();
 
@@ -20,9 +20,8 @@ export default class DebugSession extends LoggingDebugSession {
   private stackLevel: number;
   private exception: { type: string, lines: string[] };
 
-  public constructor(ghci: GhciApi) {
+  public constructor(private sessionManager: SessionManager) {
     super("ghci-debug.txt");
-    this.ghci = ghci;
     this.rootDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
   }
 
@@ -68,37 +67,32 @@ export default class DebugSession extends LoggingDebugSession {
     // make sure to 'Stop' the buffered logging if 'trace' is not set
     logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
 
-    this.session = await this.ghci.startSession(
-      vscode.window.activeTextEditor.document, {
-        target: args.target
-        // startOptions: "-fexternal-interpreter -prof",
-        // reloadCommands: [
-        //   ":set -fbyte-code"
-        // ],
-      }
-    );
+    const resource = vscode.workspace.workspaceFolders ?
+      vscode.workspace.workspaceFolders[0] :
+      vscode.window.activeTextEditor.document;
+
+    this.session = await this.sessionManager.getSession(resource, args.project, args.targets);
     await this.session.reload();
     await this.session.loading;
+
     await this.session.ghci.sendCommand(
       `:l ${args.module}`
     );
 
-    // await this.session.loadInterpreted(vscode.window.activeTextEditor.document.uri);
+    await this.session.ghci.sendCommand(
+      `:set -fghci-hist-size=${Configuration.getHistorySize(resource)}`
+    );
 
     this.sendEvent(new InitializedEvent());
     // wait until configuration has finished (and configurationDoneRequest has been called)
-    await this.configurationDone.wait(100000);
-
-    // await this.session.ghci.sendCommand(
-    //   `:module ${args.module}`
-    // );
+    await this.configurationDone.wait(1000);
 
     this.session.ghci.sendCommand(
       args.noDebug ?
-        args.function :
+        args.expression :
         args.stopOnEntry ?
-          `:step ${ args.function }` :
-          `:trace ${ args.function }`
+          `:step ${ args.expression }` :
+          `:trace ${ args.expression }`
     ).then(response => this.didStop(response));
 
     this.sendResponse(response);
@@ -176,40 +170,47 @@ export default class DebugSession extends LoggingDebugSession {
 
   protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): Promise<void> {
     const resp = await this.session.ghci.sendCommand(
-      ':history'
+      `:history ${Configuration.getHistorySize()}`
     );
-    let level = 1;
     let stackFrames = this.stoppedAt ? [this.stoppedAt] : [];
+    let skip = args.startFrame || 0;
+    let take = args.levels || Number.MAX_SAFE_INTEGER;
+    let total = 0;
     for (const line of resp) {
-      if(level > args.levels) {
-        break;
-      }
       const match = line.match(
         /-(\d+)\s+:\s+(?:\[1m)?(.+?)(?:\[0m)?\s+\((.+):(\d+):(\d+)(?:-(\d+))?\)/
       ) || line.match(
         /-(\d+)\s+:\s+(?:\[1m)?(.+?)(?:\[0m)?\s+\((.+):\((\d+),(\d+)\)-\((\d+),(\d+)\)\)/
       );
       if(match) {
-        const [, index, name, path, line, column, endLineColumn, endColumn] = match;
-        const frame = <DebugProtocol.StackFrame>new StackFrame(
-            Number(index),
-            name,
-            new Source(basename(path), isAbsolute(path) ? path : join(this.rootDir, path)),
-            Number(line),
-            Number(column),
-          );
-        if(endColumn) {
-          frame.endLine = Number(endLineColumn);
-        } else if (endLineColumn) {
-          frame.endLine = Number(line);
-          frame.endColumn = Number(endLineColumn) + 1;
+        total++;
+        if(skip) {
+          skip--;
+          continue;
         }
-        stackFrames.push(frame);
+        if(take) {
+          take--;
+          const [, index, name, modulePath, line, column, endLineColumn, endColumn] = match;
+          const frame = <DebugProtocol.StackFrame>new StackFrame(
+              Number(index),
+              name,
+              new Source(path.basename(modulePath), path.isAbsolute(modulePath) ? modulePath : path.join(this.rootDir, modulePath)),
+              Number(line),
+              Number(column),
+            );
+          if(endColumn) {
+            frame.endLine = Number(endLineColumn);
+          } else if (endLineColumn) {
+            frame.endLine = Number(line);
+            frame.endColumn = Number(endLineColumn) + 1;
+          }
+          stackFrames.push(frame);
+        }
       }
     }
     response.body = {
       stackFrames: stackFrames,
-      totalFrames: stackFrames.length
+      totalFrames: total
     };
     this.sendResponse(response);
   }
@@ -309,26 +310,30 @@ export default class DebugSession extends LoggingDebugSession {
   }
 
   protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
-    const variable = this.variables.find(variable =>
-      variable.name === args.expression);
-    if (variable) {
-      response.body = {
-        result: variable.value,
-        variablesReference: 0
-      };
-    } else {
-      const output = await this.session.ghci.sendCommand(
-        args.expression
-      );
-      if (output[ 0 ].length) {
-        const match = output[ 0 ].match(/\[.+\]\s+(.+)/);
-        if (match) {
-          response.body = {
-            result: match[ 1 ],
-            variablesReference: 0
-          };
+    if (this.stoppedAt) {
+      const variable = this.variables.find(variable =>
+        variable.name === args.expression);
+      if (variable) {
+        response.body = {
+          result: variable.value,
+          variablesReference: 0
+        };
+      } else {
+        const output = await this.session.ghci.sendCommand(
+          args.expression
+        );
+        if (output[ 0 ].length) {
+          const match = output[ 0 ].match(/\[.+\]\s+(.+)/);
+          if (match) {
+            response.body = {
+              result: match[ 1 ],
+              variablesReference: 0
+            };
+          }
         }
       }
+    } else {
+      this.session.ghci.sendData(args.expression + '\n');
     }
     this.sendResponse(response);
   }
@@ -367,7 +372,7 @@ export default class DebugSession extends LoggingDebugSession {
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):(\d+):(\d+)/m) ||
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/m);
     if (match) {
-      const [ , out, name, path, line, column ] = match;
+      const [ , out, name, modPath, line, column ] = match;
       if(out) {
         this.sendEvent(new OutputEvent(out));
       }
@@ -375,7 +380,7 @@ export default class DebugSession extends LoggingDebugSession {
         new StackFrame(
           Number(0),
           name.split('.').slice(-1)[0],
-          new Source(basename(path), isAbsolute(path) ? path : join(this.rootDir, path)),
+          new Source(path.basename(modPath), path.isAbsolute(modPath) ? modPath : path.join(this.rootDir, modPath)),
           Number(line),
           Number(column)
         );

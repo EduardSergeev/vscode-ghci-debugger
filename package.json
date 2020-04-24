@@ -2,7 +2,7 @@
   "name": "ghci-debugger",
   "displayName": "Bare GHCi Debugger",
   "description": "Pure TypeScript adapter to GHCi debugger",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "Edka",
   "repository": {
     "url": "https://github.com/EduardSergeev/vscode-ghci-debugger"
@@ -30,76 +30,11 @@
       "type": "object",
       "title": "GHCi Debugger configuration settings",
       "properties": {
-        "ghci-debugger.feature.debugger": {
-          "type": "boolean",
-          "default": true,
-          "scope": "resource",
-          "description": "Enable debugger feature"
-        },
-        "ghci-debugger.replCommand": {
-          "type": "string",
-          "default": "",
-          "scope": "resource",
-          "markdownDescription": "The command used to start GHCi. `$stack_ide_targets` will be replaced by the output of `stack ide targets`. Leave blank for auto detection. When set, overrides the deprecated `ghci-debugger.workspaceType`. If you set this, please also set `ghci-debugger.replScope` to an appropriate value."
-        },
-        "ghci-debugger.replScope": {
-          "type": "string",
-          "enum": [
-            "workspace",
-            "file"
-          ],
-          "default": "workspace",
-          "markdownDescription": "Whether GHCi should be started for a project or individual files. **Note**: This option has no effect when `ghci-debugger.replCommand` is set to empty string for auto detection."
-        },
-        "ghci-debugger.startupCommands.all": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "System.IO.hSetBuffering System.IO.stderr System.IO.NoBuffering",
-            "System.IO.hSetBuffering System.IO.stdout System.IO.NoBuffering",
-            ":set -fdefer-type-errors -fdefer-typed-holes -fdefer-out-of-scope-variables",
-            ":set -fno-hide-source-paths",
-            ":set -Wno-error=missing-home-modules"
-          ],
-          "scope": "resource",
-          "markdownDescription": "GHCi commands on startup to use for all workspace types. The default value is for use within vscode-ghc-simple and you can customize these if needed. Since these might be updated in the future, Custom commands should go to `ghci-debugger.startupCommands.custom`"
-        },
-        "ghci-debugger.startupCommands.bare": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            ":set -Wno-type-defaults"
-          ],
-          "scope": "resource",
-          "markdownDescription": "GHCi commands on startup to use for 'bare' workspace types. The default value is for use within vscode-ghc-simple and you can customize these if needed. Since these might be updated in the future, Custom commands should go to `ghci-debugger.startupCommands.custom`"
-        },
-        "ghci-debugger.startupCommands.custom": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "scope": "resource",
-          "markdownDescription": "Custom GHCi commands on startup"
-        },
-        "ghci-debugger.workspaceType": {
-          "type": "string",
-          "default": "detect",
-          "markdownDescription": "*This option is deprecated.* See `ghcSimple.replCommand` and `ghcSimple.replScope`.",
-          "scope": "resource",
-          "enum": [
-            "detect",
-            "stack",
-            "cabal",
-            "cabal new",
-            "cabal v2",
-            "bare-stack",
-            "bare"
-          ]
+        "ghci-debugger.historySize": {
+          "type": "integer",
+          "default": 50,
+          "scope": "application",
+          "markdownDescription": "The depth of the evaluation history tracked by GHCi. Determines the maximum depth of stack trace displayed.  \nUsed to set [-fghci-hist-size](https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/ghci.html#ghc-flag--fghci-hist-size=%E2%9F%A8n%E2%9F%A9) flag. "
         }
       }
     },
@@ -116,49 +51,41 @@
         "runtime": "node",
         "configurationAttributes": {
           "launch": {
-            "required": [
-              "module",
-              "function"
-            ],
+            "required": [],
             "properties": {
-              "target": {
+              "project": {
                 "type": "string",
-                "description": "Project's target to debug",
+                "description": "Project's type to debug. Supported: `cabal`, `cabal new`, `cabal v2`, `stack`, `bare-stack`, `bare`",
+                "default": null
+              },
+              "targets": {
+                "type": "string",
+                "description": "Project's target(s) to debug",
                 "default": null
               },
               "module": {
                 "type": "string",
                 "description": "Target's module to debug",
-                "default": "Main"
+                "default": null
               },
-              "function": {
+              "expression": {
                 "type": "string",
-                "description": "Module's function to debug",
-                "default": "main"
+                "description": "Haskell expression to debug",
+                "defaul": null
               },
               "stopOnEntry": {
                 "type": "boolean",
                 "description": "Automatically stop after launch.",
-                "default": true
+                "default": false
               },
               "trace": {
                 "type": "boolean",
                 "description": "Enable logging of the Debug Adapter Protocol.",
-                "default": true
+                "default": false
               }
             }
           }
-        },
-        "initialConfigurations": [
-          {
-            "type": "ghci",
-            "request": "launch",
-            "name": "Main.main",
-            "module": "Main",
-            "function": "main",
-            "stopOnEntry": false
-          }
-        ]
+        }
       }
     ]
   },

@@ -1,15 +1,15 @@
 import * as vscode from 'vscode';
-import * as child_process from 'child_process';
-import { GhciManager, GhciOptions } from "./ghci";
-import { ExtensionState, HaskellWorkspaceType } from "./extension-state";
+import * as Path from 'path';
+import { OutputChannel } from 'vscode';
+import GhciManager from "./ghci";
 import { stackCommand, reportError } from './utils';
-import Path = require('path');
+import { Resource, asWorkspaceFolder } from './resource';
+import { Project } from './project';
 
-export class Session implements vscode.Disposable {
+export default class Session implements vscode.Disposable {
   ghci: GhciManager;
   starting: Promise<void> | null;
   loading: Promise<void>;
-  files: Set<string>;
   typeCache: Promise<string[]> | null;
   moduleMap: Map<string, string>;
   cwdOption: { cwd?: string };
@@ -17,18 +17,17 @@ export class Session implements vscode.Disposable {
   wasDisposed: boolean;
 
   constructor(
-    public ext: ExtensionState,
-    public workspaceType: HaskellWorkspaceType,
-    public resourceType: 'workspace' | 'file',
-    public resource: vscode.Uri,
-    public ghciOptions: GhciOptions = new GhciOptions) {
+    public outputChannel: OutputChannel,
+    public projectType: Project,
+    public resource: Resource,
+    private targets: string,
+    private ghciOptions: string[]) {
     this.ghci = null;
     this.starting = null;
     this.loading = null;
-    this.files = new Set();
     this.typeCache = null;
     this.moduleMap = new Map();
-    this.cwdOption = resourceType === 'workspace' ? { cwd: this.resource.fsPath } : {};
+    this.cwdOption = asWorkspaceFolder(resource) ? { cwd: resource.uri.fsPath } : {};
     this.wasDisposed = false;
   }
 
@@ -46,14 +45,14 @@ export class Session implements vscode.Disposable {
           // We are disposed so do not report error
           return;
         }
-        reportError(this.ext, err.toString());
+        reportError(this.outputChannel, err.toString());
         vscode.window.showWarningMessage(
           'Error while starting GHCi.',
           'Open log'
         ).then(
           (item) => {
             if (item === 'Open log') {
-              this.ext.outputChannel?.show();
+              this.outputChannel.show();
             }
           },
           (err) => console.error(err)
@@ -66,115 +65,45 @@ export class Session implements vscode.Disposable {
 
   async startP() {
     if (this.ghci === null) {
-      const wst = this.workspaceType;
-
-      const getStackIdeTargets = async () => {
-        this.checkDisposed();
-        const result = await new Promise<string>((resolve, reject) => {
-          child_process.exec(
-            `${ stackCommand } ide targets`,
-            this.cwdOption,
-            (err, stdout, stderr) => {
-              if (err) {
-                reject('Command stack ide targets failed:\n' + stderr);
-              }
-              else {
-                resolve(stderr);
-              }
-            }
-          );
-        });
-        return result.match(/^[^\s]+:[^\s]+$/gm);
-      };
-
-      const getCabalTargets = async (configure: string) => {
-        const result = await new Promise<string>((resolve, reject) => {
-          child_process.exec(
-            `cabal ${configure} --dry-run`,
-            this.cwdOption,
-            (err, stdout, stderr) => {
-              if (err) {
-                reject('Command "cabal new-configure" failed:\n' + stderr);
-              }
-              else {
-                resolve(stdout);
-              }
-            }
-          );
-        });
-        const targets = [];
-        for (let match, pattern = /^\s+-\s+(\S+)-.+?\((.+?)\)/gm; match = pattern.exec(result);) {
-          const [, module, type] = match;
-          targets.push(
-            type.includes(':') ? type : module
-          );
-        }
-        return targets;
-      };
-
-      const pickTarget = async (targets: string[]) =>
-        targets.length > 1 ? await vscode.window.showQuickPick(targets) : targets[0];
-
       this.checkDisposed();
+      const wst = this.projectType;
+
+      const ghciParams = (prefix?: string, postfix?: string) =>
+        this.ghciOptions ? `${prefix || ''}${this.ghciOptions}${postfix || ''}` : "";
+
       const cmd = await (async () => {
-        if (wst === 'custom-workspace' || wst === 'custom-file') {
-          let cmd = vscode.workspace.getConfiguration('ghci-debugger', this.resource).replCommand;
-          if (cmd.indexOf('$stack_ide_targets') !== -1) {
-            const sit = await getStackIdeTargets();
-            cmd.replace(/\$stack_ide_targets/g, sit.join(' '));
-          }
-          return cmd;
-        } else if (wst === 'stack') {
-          let target = this.ghciOptions.target || await pickTarget(await getStackIdeTargets());
-          return `${stackCommand} repl${this.getStartOptions(' --ghci-options "', '"')} ${target}`;
+        if (wst === 'stack') {
+          return `${stackCommand} repl${ghciParams(' --ghci-options "', '"')} ${this.targets}`;
         } else if (wst === 'cabal') {
-          let target = this.ghciOptions.target || await pickTarget(await getCabalTargets('configure'));
-          return `cabal repl${this.getStartOptions(' --ghc-options "', '"')} ${target}`;
+          return `cabal repl${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
         }
         else if (wst === 'cabal new') {
-          let target = this.ghciOptions.target || await pickTarget(await getCabalTargets('new-configure'));
-          return `cabal new-repl ${this.getStartOptions(' --ghc-options "', '"')} ${target}`;
+          return `cabal new-repl ${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
         }
         else if (wst === 'cabal v2') {
-          let target = this.ghciOptions.target || await pickTarget(await getCabalTargets('v2-configure'));
-          return `cabal v2-repl ${this.getStartOptions(' --ghc-options "', '"')} ${target}`;
+          return `cabal v2-repl ${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
         }
         else if (wst === 'bare-stack') {
-          return `${stackCommand} exec ghci${this.getStartOptions(' -- ')}`;
+          return `${stackCommand} exec ghci ${this.targets}${ghciParams(' -- ')}`;
         }
         else if (wst === 'bare') {
-          return `ghci${this.getStartOptions(' ')}`;
+          return `ghci ${this.targets}${ghciParams(' ')}`;
         }
       })();
 
-      this.ext.outputChannel?.appendLine(`Starting GHCi with: ${ JSON.stringify(cmd) }`);
-      this.ext.outputChannel?.appendLine(
+      this.outputChannel.appendLine(`Starting GHCi with: ${JSON.stringify(cmd)}`);
+      this.outputChannel.appendLine(
         `(Under ${
         this.cwdOption.cwd === undefined
           ? 'default cwd'
           : `cwd ${ this.cwdOption.cwd }` })`);
 
-      this.checkDisposed();
       this.ghci = new GhciManager(
         cmd,
         this.cwdOption,
-        this.ext);
-      const cmds = vscode.workspace.getConfiguration('ghci-debugger', this.resource).startupCommands;
-      const configureCommands = [].concat(
-        this.ghciOptions.startupCommands?.all || cmds.all,
-        wst === 'bare-stack' || wst === 'bare' ? this.ghciOptions.startupCommands?.bare || cmds.bare : [],
-        this.ghciOptions.startupCommands?.custom || cmds.custom
+        this.outputChannel
       );
-      configureCommands.forEach(c => this.ghci.sendCommand(c));
     }
-  }
-
-  addFile(s: string) {
-    this.files.add(s);
-  }
-
-  removeFile(s: string) {
-    this.files.delete(s);
   }
 
   async reload(): Promise<string[]> {
@@ -199,18 +128,12 @@ export class Session implements vscode.Disposable {
         this.moduleMap.set(fullPath.toLowerCase(), module);
       }
     }
-    await this.ghci.sendCommand(':module');
+    // await this.ghci.sendCommand(':module');
     return modules;
   }
 
   getModuleName(filename: string): string {
     return this.moduleMap.get(filename);
-  }
-
-  getStartOptions(prefix?: string, postfix?: string): string {
-    return this.ghciOptions.startOptions ?
-      `${ prefix || '' }${ this.ghciOptions.startOptions }${ postfix || '' }` :
-      "";
   }
 
   dispose() {

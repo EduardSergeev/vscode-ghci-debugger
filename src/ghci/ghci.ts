@@ -2,8 +2,8 @@
 
 import * as child_process from 'child_process';
 import * as readline from 'readline';
-import { Disposable, CancellationToken } from "vscode";
-import { ExtensionState } from './extension-state';
+import * as process from 'process';
+import { Disposable, CancellationToken, OutputChannel } from "vscode";
 
 interface StrictCommandConfig {
   token: CancellationToken;
@@ -20,32 +20,21 @@ interface PendingCommand extends StrictCommandConfig {
   reject: (reason: any) => void;
 }
 
-export class GhciOptions {
-  target?: string;
-  startOptions?: string;
-  reloadCommands?: string[];
-  startupCommands?: {
-    all?: string[];
-    bare?: string[];
-    custom?: string[];
-  };
-}
-
-export class GhciManager implements Disposable {
+export default class GhciManager implements Disposable {
   proc: child_process.ChildProcess | null;
   command: string;
   options: any;
   stdout: readline.ReadLine;
   stderr: readline.ReadLine;
-  ext: ExtensionState;
+  outputChannel: OutputChannel;
 
   wasDisposed: boolean;
 
-  constructor(command: string, options: any, ext: ExtensionState) {
+  constructor(command: string, options: any, outputChannel: OutputChannel) {
     this.proc = null;
     this.command = command;
     this.options = options;
-    this.ext = ext;
+    this.outputChannel = outputChannel;
     this.wasDisposed = false;
   }
 
@@ -64,16 +53,18 @@ export class GhciManager implements Disposable {
   }
 
   outputLine(line: string) {
-    this.ext.outputChannel?.appendLine(line);
+    this.outputChannel?.appendLine(line);
   }
 
   async start(): Promise<child_process.ChildProcess> {
     this.checkDisposed();
-
-    this.proc = child_process.spawn(this.command, {
+    // Otherwise Windows' cmd cannot display Unicode
+    const unicodeFix = process.platform === 'win32' ? 'cmd /c chcp 65001>nul && ' : '';
+    this.proc = child_process.spawn(unicodeFix + this.command, {
       ... this.options,
       stdio: 'pipe',
-      shell: true
+      shell: true,
+      windowsVerbatimArguments: true
     });
     this.proc.on('exit', () => { this.proc = null; });
     this.proc.on('error', () => { this.proc = null; });
@@ -128,6 +119,11 @@ export class GhciManager implements Disposable {
     return this._sendCommand(commands, config);
   }
 
+  sendData(data: string) {
+    this.proc.stdin.write(data);
+  }
+
+
   _sendCommand(commands: string[], config: CommandConfig = {}):
     Promise<string[]> {
     return new Promise((resolve, reject) => {
@@ -152,12 +148,11 @@ export class GhciManager implements Disposable {
   }
 
   handleLine(line: string) {
-    line = line.replace(/\ufffd/g, ''); // Workaround for invalid characters showing up in output
     this.outputLine(`ghci | ${ line }`);
     if (this.currentCommand === null) {
       // Ignore stray line
     } else {
-      if (line[line.length - 1] === 'λ') {
+      if (line.slice(-1) === 'λ') {
         if(line.length > 1) {
           this.currentCommand.lines.push(line.slice(0, line.length - 1));
         }
