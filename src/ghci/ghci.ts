@@ -119,6 +119,11 @@ export default class GhciManager implements Disposable {
     return this._sendCommand(commands, config);
   }
 
+  sendData(data: string) {
+    this.proc.stdin.write(data);
+  }
+
+
   _sendCommand(commands: string[], config: CommandConfig = {}):
     Promise<string[]> {
     return new Promise((resolve, reject) => {

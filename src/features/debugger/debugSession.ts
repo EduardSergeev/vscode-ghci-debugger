@@ -297,26 +297,30 @@ export default class DebugSession extends LoggingDebugSession {
   }
 
   protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
-    const variable = this.variables.find(variable =>
-      variable.name === args.expression);
-    if (variable) {
-      response.body = {
-        result: variable.value,
-        variablesReference: 0
-      };
-    } else {
-      const output = await this.session.ghci.sendCommand(
-        args.expression
-      );
-      if (output[ 0 ].length) {
-        const match = output[ 0 ].match(/\[.+\]\s+(.+)/);
-        if (match) {
-          response.body = {
-            result: match[ 1 ],
-            variablesReference: 0
-          };
+    if (this.stoppedAt) {
+      const variable = this.variables.find(variable =>
+        variable.name === args.expression);
+      if (variable) {
+        response.body = {
+          result: variable.value,
+          variablesReference: 0
+        };
+      } else {
+        const output = await this.session.ghci.sendCommand(
+          args.expression
+        );
+        if (output[ 0 ].length) {
+          const match = output[ 0 ].match(/\[.+\]\s+(.+)/);
+          if (match) {
+            response.body = {
+              result: match[ 1 ],
+              variablesReference: 0
+            };
+          }
         }
       }
+    } else {
+      this.session.ghci.sendData(args.expression + '\n');
     }
     this.sendResponse(response);
   }
