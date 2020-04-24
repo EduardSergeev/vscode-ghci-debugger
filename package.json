@@ -29,7 +29,14 @@
     "configuration": {
       "type": "object",
       "title": "GHCi Debugger configuration settings",
-      "properties": {}
+      "properties": {
+        "ghci-debugger.historySize": {
+          "type": "integer",
+          "default": 50,
+          "scope": "application",
+          "markdownDescription": "The depth of the evaluation history tracked by GHCi. Determines the maximum depth of stack trace displayed.  \nUsed to set [-fghci-hist-size](https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/ghci.html#ghc-flag--fghci-hist-size=%E2%9F%A8n%E2%9F%A9) flag. "
+        }
+      }
     },
     "breakpoints": [
       {

@@ -5,6 +5,7 @@ import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Brea
 import LaunchRequestArguments from './launchRequestArguments';
 import Session from '../../ghci/session';
 import SessionManager from '../../ghci/sessionManager';
+import Configuration from './configuration';
 const { Subject } = require('await-notify');
 
 
@@ -73,8 +74,13 @@ export default class DebugSession extends LoggingDebugSession {
     this.session = await this.sessionManager.getSession(resource, args.project, args.targets);
     await this.session.reload();
     await this.session.loading;
+
     await this.session.ghci.sendCommand(
       `:l ${args.module}`
+    );
+
+    await this.session.ghci.sendCommand(
+      `:set -fghci-hist-size=${Configuration.getHistorySize(resource)}`
     );
 
     this.sendEvent(new InitializedEvent());
@@ -164,40 +170,47 @@ export default class DebugSession extends LoggingDebugSession {
 
   protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): Promise<void> {
     const resp = await this.session.ghci.sendCommand(
-      ':history'
+      `:history ${Configuration.getHistorySize()}`
     );
-    let level = 1;
     let stackFrames = this.stoppedAt ? [this.stoppedAt] : [];
+    let skip = args.startFrame || 0;
+    let take = args.levels || Number.MAX_SAFE_INTEGER;
+    let total = 0;
     for (const line of resp) {
-      if(level > args.levels) {
-        break;
-      }
       const match = line.match(
         /-(\d+)\s+:\s+(?:\[1m)?(.+?)(?:\[0m)?\s+\((.+):(\d+):(\d+)(?:-(\d+))?\)/
       ) || line.match(
         /-(\d+)\s+:\s+(?:\[1m)?(.+?)(?:\[0m)?\s+\((.+):\((\d+),(\d+)\)-\((\d+),(\d+)\)\)/
       );
       if(match) {
-        const [, index, name, modulePath, line, column, endLineColumn, endColumn] = match;
-        const frame = <DebugProtocol.StackFrame>new StackFrame(
-            Number(index),
-            name,
-            new Source(path.basename(modulePath), path.isAbsolute(modulePath) ? modulePath : path.join(this.rootDir, modulePath)),
-            Number(line),
-            Number(column),
-          );
-        if(endColumn) {
-          frame.endLine = Number(endLineColumn);
-        } else if (endLineColumn) {
-          frame.endLine = Number(line);
-          frame.endColumn = Number(endLineColumn) + 1;
+        total++;
+        if(skip) {
+          skip--;
+          continue;
         }
-        stackFrames.push(frame);
+        if(take) {
+          take--;
+          const [, index, name, modulePath, line, column, endLineColumn, endColumn] = match;
+          const frame = <DebugProtocol.StackFrame>new StackFrame(
+              Number(index),
+              name,
+              new Source(path.basename(modulePath), path.isAbsolute(modulePath) ? modulePath : path.join(this.rootDir, modulePath)),
+              Number(line),
+              Number(column),
+            );
+          if(endColumn) {
+            frame.endLine = Number(endLineColumn);
+          } else if (endLineColumn) {
+            frame.endLine = Number(line);
+            frame.endColumn = Number(endLineColumn) + 1;
+          }
+          stackFrames.push(frame);
+        }
       }
     }
     response.body = {
       stackFrames: stackFrames,
-      totalFrames: stackFrames.length
+      totalFrames: total
     };
     this.sendResponse(response);
   }
