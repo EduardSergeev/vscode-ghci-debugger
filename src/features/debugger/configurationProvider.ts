@@ -39,6 +39,12 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
           await this.sessionManager.getSession(folder, config.project, config.targets),
           config.module
         );
+
+      config.name = [
+        config.project,
+        config.module,
+        config.expression
+      ].filter(x => x).join(' ');
     } catch { }
 
     return [config];
