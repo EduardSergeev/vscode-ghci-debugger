@@ -1,18 +1,22 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { Disposable, Terminal } from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, logger, OutputEvent } from "vscode-debugadapter";
+import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, logger } from "vscode-debugadapter";
 import LaunchRequestArguments from './launchRequestArguments';
 import Session from '../../ghci/session';
 import SessionManager from '../../ghci/sessionManager';
 import Configuration from './configuration';
+import ConsoleTerminal from './console';
 const { Subject } = require('await-notify');
 
 
-export default class DebugSession extends LoggingDebugSession {
+export default class DebugSession extends LoggingDebugSession implements vscode.Disposable {
   private rootDir: string;
   private session: Session;
   private configurationDone = new Subject();
+  private serviceMessage: Boolean;
+  private subscriptions = [];
 
   private breakpoints: DebugProtocol.Breakpoint[] = [];
   private variables: DebugProtocol.Variable[];
@@ -20,9 +24,13 @@ export default class DebugSession extends LoggingDebugSession {
   private stackLevel: number;
   private exception: { type: string, lines: string[] };
 
-  public constructor(private sessionManager: SessionManager) {
+  public constructor(
+    private sessionManager: SessionManager,
+    private consoleTerminal: ConsoleTerminal,
+    private terminal: Terminal) {
     super("ghci-debug.txt");
-    this.rootDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    this.rootDir = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath || '.';
+    this.consoleTerminal.onDidInput(this.didInput, this, this.subscriptions);
   }
 
 	/**
@@ -36,6 +44,8 @@ export default class DebugSession extends LoggingDebugSession {
     response.body.supportsConfigurationDoneRequest = true;
 
     response.body.supportsEvaluateForHovers = true;
+    response.body.supportsDelayedStackTraceLoading = true;
+    response.body.supportsGotoTargetsRequest = true;
 
     response.body.supportsExceptionOptions = true;
     response.body.supportsExceptionInfoRequest = true;
@@ -74,10 +84,17 @@ export default class DebugSession extends LoggingDebugSession {
     this.session = await this.sessionManager.getSession(resource, args.project, args.targets);
     await this.session.reload();
     await this.session.loading;
+    this.session.ghci.data(this.didOutput, this, this.subscriptions);
 
-    await this.session.ghci.sendCommand(
-      `:l ${args.module}`
-    );
+    if(this.rootDir !== '.') {
+      await this.session.ghci.sendCommand(
+        `:l ${args.module}`
+      );
+    } else {
+      await this.session.ghci.sendCommand(
+        `:l ${vscode.window.activeTextEditor.document.uri.fsPath}`
+      );
+    }
 
     await this.session.ghci.sendCommand(
       `:set -fghci-hist-size=${Configuration.getHistorySize(resource)}`
@@ -87,14 +104,18 @@ export default class DebugSession extends LoggingDebugSession {
     // wait until configuration has finished (and configurationDoneRequest has been called)
     await this.configurationDone.wait(1000);
 
+    vscode.commands.executeCommand('workbench.action.terminal.clear');
+
     this.session.ghci.sendCommand(
       args.noDebug ?
         args.expression :
         args.stopOnEntry ?
-          `:step ${ args.expression }` :
-          `:trace ${ args.expression }`
+          `:step ${args.expression}` :
+          `:trace ${args.expression}`,
+      { captureOutput: true}
     ).then(response => this.didStop(response));
 
+    this.terminal.show();
     this.sendResponse(response);
   }
 
@@ -235,11 +256,11 @@ export default class DebugSession extends LoggingDebugSession {
         if (name === 'it') {
           continue;
         }
-        // await this.session.ghci.sendCommand(
-        //   `:force ${name}`
-        // );
+        await this.session.ghci.sendCommand(
+          `:force ${name}`
+        );
         const lines = await this.session.ghci.sendCommand(
-          `:print ${name}`
+          `:sprint ${name}`
         );
         const output = lines.join('\n');
         if(match = output.match(/= ([\s\S]+?)\[/)) {
@@ -341,17 +362,60 @@ export default class DebugSession extends LoggingDebugSession {
 
   protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
     this.session.ghci.sendCommand(
-      ':trace'
+      ':trace',
+      {captureOutput: true}
     ).then(response => this.didStop(response));
+    this.terminal.show();
     this.sendResponse(response);
   }
 
   protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
     this.session.ghci.sendCommand(
-      ':step'
+      ':steplocal',
+      {captureOutput: true}
     ).then(response => this.didStop(response));
+    this.terminal.show();
     this.sendResponse(response);
   }
+
+  protected stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments, request?: DebugProtocol.Request): void {
+    this.session.ghci.sendCommand(
+      ':step',
+      {captureOutput: true}
+    ).then(response => this.didStop(response));
+    this.terminal.show();
+    this.sendResponse(response);
+  }
+
+  protected async gotoTargetsRequest(response: DebugProtocol.GotoTargetsResponse, args: DebugProtocol.GotoTargetsArguments, request?: DebugProtocol.Request): Promise<void> {
+    const source = args.source;
+    const module = this.session.getModuleName(source.path.toLowerCase());
+    const output = await this.session.ghci.sendCommand(
+      `:break ${module} ${args.line} ${args.column || ''}`
+    );
+    const [, id, line, column, endLineColumn, endColumn] =
+      output[0].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)(?:-(\d+))?/) ||
+      output[0].match(/Breakpoint\s(\d+).+?:\((\d+),(\d+)\)-\((\d+),(\d+)\)/);
+    let target = {
+      id: Number(id),
+      label: id,
+      line: Number(line),
+      column: Number(column),
+      endLine: null,
+      endColumn: null
+    };
+    if(endColumn) {
+      target.endLine = Number(endLineColumn);
+    } else if (endLineColumn) {
+      target.endLine = Number(line);
+      target.endColumn = Number(endLineColumn) + 1;
+    }
+    response.body = {
+      targets: [target]
+    };
+    this.sendResponse(response);
+  }
+
 
   protected terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request): void {
     this.session.ghci.sendCommand(
@@ -362,6 +426,7 @@ export default class DebugSession extends LoggingDebugSession {
 
 
   private async didStop(response: string[]) {
+    this.terminal.show();
     this.stackLevel = 0;
     this.stoppedAt = null;
     this.variables = [];
@@ -373,32 +438,33 @@ export default class DebugSession extends LoggingDebugSession {
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/m);
     if (match) {
       const [ , out, name, modPath, line, column ] = match;
-      if(out) {
-        this.sendEvent(new OutputEvent(out));
-      }
+      const fullPath = path.isAbsolute(modPath) ? modPath : path.join(this.rootDir, modPath);
+      const module = this.session.getModuleName(fullPath);
       this.stoppedAt =
         new StackFrame(
           Number(0),
           name.split('.').slice(-1)[0],
-          new Source(path.basename(modPath), path.isAbsolute(modPath) ? modPath : path.join(this.rootDir, modPath)),
+          new Source(path.basename(modPath), fullPath),
           Number(line),
           Number(column)
         );
 
       if (this.breakpoints.find(breakpoint =>
-        breakpoint.line === Number(line) && breakpoint.column === Number(column))) {
+        breakpoint.source.name === module &&
+        breakpoint.line === Number(line) &&
+        breakpoint.column === Number(column))) {
           this.sendEvent(new StoppedEvent('breakpoint', 1));
       } else {
         this.sendEvent(new StoppedEvent('step', 1));
       }
     } else if (match = output.match(/(?:\[.*\] )?([\s\S]*)(^\*\*\* Exception: [\s\S]*)/m)) {
       const [, out, exception] = match;
-      this.sendEvent(new OutputEvent(out));
-      this.sendEvent(new OutputEvent(exception));
+      this.consoleTerminal.sendData(out);
+      this.consoleTerminal.sendData(exception);
       this.sendEvent(new TerminatedEvent());
     } else if (match = output.match(/(?:\[.*\] )?([\s\S]*)Stopped in <exception thrown>/m)) {
       const [, out] = match;
-      this.sendEvent(new OutputEvent(out));
+      this.consoleTerminal.sendData(out);
       await this.session.ghci.sendCommand(
         ':force _exception'
       );
@@ -416,8 +482,36 @@ export default class DebugSession extends LoggingDebugSession {
       this.sendEvent(new StoppedEvent('exception', 1));
     } else {
       const [, out] = output.match(/(?:\[.*\] )?([\s\S]*)/);
-      this.sendEvent(new OutputEvent(out));
+      this.consoleTerminal.sendData(out);
       this.sendEvent(new TerminatedEvent());
     }
+  }
+
+  private didOutput(data: string) {
+    const start = data.indexOf('Stopped in ');
+    const end = data.indexOf('λ\n');
+    if (start >= 0) {
+      this.serviceMessage = true;
+      data = data.slice(0, start);
+      if(data) {
+        this.consoleTerminal.sendData(data);
+      }
+    } else if (this.serviceMessage && end >= 0) {
+      data = data.slice(end + 2);
+      if (data) {
+        this.consoleTerminal.sendData(data);
+      }
+      this.serviceMessage = false;
+    } else if(!this.serviceMessage) {
+      this.consoleTerminal.sendData(data.replace(/λ\n/m, ''));
+    }
+  }
+
+  private didInput(data: string) {
+    this.session.ghci.sendData(data);
+  }
+
+  public dispose() {
+    Disposable.from(...this.subscriptions).dispose();
   }
 }

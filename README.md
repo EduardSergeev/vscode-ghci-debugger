@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/EduardSergeev/vscode-ghci-debugger.svg?branch=master)](https://travis-ci.org/EduardSergeev/vscode-ghci-debugger)
 
-Barebone TypeScript adapter to GHCi Debugger.  
+Bare TypeScript adapter to GHCi Debugger.  
 
 ## Installation
 

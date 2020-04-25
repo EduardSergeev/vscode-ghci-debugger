@@ -109,8 +109,8 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
           );
         if(!config.expression) {
           const choice = await vscode.window.showErrorMessage(
-            "Please select function to debug",
-            'Select function',
+            "Please select expression to debug",
+            'Select expression',
             'Cancel debug'
           );
           if(choice === 'Cancel debug') {
@@ -129,17 +129,13 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
   }
 
   private async getProject(resource: Resource): Promise<Project | undefined> {
-    const folder = asWorkspaceFolder(resource);
-    if(folder) {
-      const types = await getProjectConfigurations(folder);
-
-      if (!types.length) {
-        throw new Error("Could not find any Haskell to debug");
-      }
-      return types.length > 1 ?
-        await vscode.window.showQuickPick(types, { placeHolder: "Select Haskell project type to debug" }) :
-        types[0];
-      }
+    const types = await getProjectConfigurations(resource);
+    if (!types.length) {
+      throw new Error("Could not find any Haskell to debug");
+    }
+    return types.length > 1 ?
+      await vscode.window.showQuickPick(types, { placeHolder: "Select Haskell project type to debug" }) :
+      types[0];
   }
 
   private async getTargets(project: ConfiguredProject, resource: Resource): Promise<string> {
@@ -198,7 +194,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       detail: 'Type in arbitrary expression to debug'
     };
     const item = await vscode.window.showQuickPick(items.concat([custom]), { placeHolder: "Select function to debug" });
-    if (item.label === customLabel) { 
+    if (item && item.label === customLabel) { 
       const expression = await vscode.window.showInputBox({ value: 'putStrLn "Hello, world!"', prompt: 'Enter Haskell expression to debug', ignoreFocusOut: true });
       item.label = expression;
     }
