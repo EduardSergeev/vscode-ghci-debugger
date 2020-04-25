@@ -44,8 +44,8 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
     response.body.supportsConfigurationDoneRequest = true;
 
     response.body.supportsEvaluateForHovers = true;
-
     response.body.supportsDelayedStackTraceLoading = true;
+    response.body.supportsGotoTargetsRequest = true;
 
     response.body.supportsExceptionOptions = true;
     response.body.supportsExceptionInfoRequest = true;
@@ -387,6 +387,36 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
     this.sendResponse(response);
   }
 
+  protected async gotoTargetsRequest(response: DebugProtocol.GotoTargetsResponse, args: DebugProtocol.GotoTargetsArguments, request?: DebugProtocol.Request): Promise<void> {
+    const source = args.source;
+    const module = this.session.getModuleName(source.path.toLowerCase());
+    const output = await this.session.ghci.sendCommand(
+      `:break ${module} ${args.line} ${args.column || ''}`
+    );
+    const [, id, line, column, endLineColumn, endColumn] =
+      output[0].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)(?:-(\d+))?/) ||
+      output[0].match(/Breakpoint\s(\d+).+?:\((\d+),(\d+)\)-\((\d+),(\d+)\)/);
+    let target = {
+      id: Number(id),
+      label: id,
+      line: Number(line),
+      column: Number(column),
+      endLine: null,
+      endColumn: null
+    };
+    if(endColumn) {
+      target.endLine = Number(endLineColumn);
+    } else if (endLineColumn) {
+      target.endLine = Number(line);
+      target.endColumn = Number(endLineColumn) + 1;
+    }
+    response.body = {
+      targets: [target]
+    };
+    this.sendResponse(response);
+  }
+
+
   protected terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request): void {
     this.session.ghci.sendCommand(
       ':abandon'
@@ -408,17 +438,21 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/m);
     if (match) {
       const [ , out, name, modPath, line, column ] = match;
+      const fullPath = path.isAbsolute(modPath) ? modPath : path.join(this.rootDir, modPath);
+      const module = this.session.getModuleName(fullPath);
       this.stoppedAt =
         new StackFrame(
           Number(0),
           name.split('.').slice(-1)[0],
-          new Source(path.basename(modPath), path.isAbsolute(modPath) ? modPath : path.join(this.rootDir, modPath)),
+          new Source(path.basename(modPath), fullPath),
           Number(line),
           Number(column)
         );
 
       if (this.breakpoints.find(breakpoint =>
-        breakpoint.line === Number(line) && breakpoint.column === Number(column))) {
+        breakpoint.source.name === module &&
+        breakpoint.line === Number(line) &&
+        breakpoint.column === Number(column))) {
           this.sendEvent(new StoppedEvent('breakpoint', 1));
       } else {
         this.sendEvent(new StoppedEvent('step', 1));
