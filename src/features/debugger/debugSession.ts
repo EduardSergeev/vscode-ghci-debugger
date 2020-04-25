@@ -371,6 +371,15 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
 
   protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
     this.session.ghci.sendCommand(
+      ':steplocal',
+      {captureOutput: true}
+    ).then(response => this.didStop(response));
+    this.terminal.show();
+    this.sendResponse(response);
+  }
+
+  protected stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments, request?: DebugProtocol.Request): void {
+    this.session.ghci.sendCommand(
       ':step',
       {captureOutput: true}
     ).then(response => this.didStop(response));
