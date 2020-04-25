@@ -191,7 +191,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
     const custom = {
       label: customLabel,
       description: "Custom expression",
-      detail: 'Type in arbitrary expression to debug'
+      detail: 'Arbitrary Haskell expression to debug'
     };
     const item = await vscode.window.showQuickPick(items.concat([custom]), { placeHolder: "Select function to debug" });
     if (item && item.label === customLabel) { 
