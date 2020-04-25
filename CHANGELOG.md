@@ -1,6 +1,19 @@
 # Change Log
 All notable changes to the "GHCi Debugger" extension will be documented in this file.
 
+## Unreleased
+### Fixed
+* Generate launch.json's `name` from selected options
+
+## [0.4.0] - 2020-04-25
+### Added
+* Configuration: generation of launch.json and on a fly configuration selection
+* Extension configuration option `ghci-debugger.historySize`: the depth of history to keep during debugging
+* Emulate debugging program console in `GHCi Debugger Console` - `Pseudoterminal` implementation
+* `Step Over` and `Step in` debugging actions are now properly implemented
+### Fixed
+* Unicode correctly displayed on Windows (debugging was not working on Windows before)
+
 ## [0.3.0] - 2020-04-22
 ### Added
 * Selection of the test target (if not configured in `launch.json`)
