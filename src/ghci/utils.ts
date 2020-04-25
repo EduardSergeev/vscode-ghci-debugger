@@ -2,15 +2,10 @@ import * as vscode from 'vscode';
 import { OutputChannel } from 'vscode';
 import * as child_process from 'child_process';
 
+
 export const haskellSymbolRegex = /([A-Z][A-Za-z0-9_']*\.)*([!#$%&*+./<=>?@\^|\-~:]+|[A-Za-z_][A-Za-z0-9_']*)/;
 export const haskellReplLine = /^(\s*-{2,}\s+)?>>>(.*)$/;
 export const stackCommand = 'stack --no-terminal --color never';
-
-
-export const haskellSelector: vscode.DocumentSelector = [
-  { language: 'haskell', scheme: 'file' },
-  { language: 'literate haskell', scheme: 'file' }
-];
 
 export function reportError(outputChannel: OutputChannel, msg: string) {
   return (err) => {

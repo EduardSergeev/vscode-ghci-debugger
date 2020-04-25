@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Disposable, Terminal } from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, logger } from "vscode-debugadapter";
+import { StackFrame, InitializedEvent, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, DebugSession } from "vscode-debugadapter";
 import LaunchRequestArguments from './launchRequestArguments';
 import Session from '../../ghci/session';
 import SessionManager from '../../ghci/sessionManager';
@@ -12,7 +12,7 @@ import StatusBar from './statusBar';
 const { Subject } = require('await-notify');
 
 
-export default class DebugSession extends LoggingDebugSession implements vscode.Disposable {
+export default class Debug extends DebugSession implements Disposable {
   private rootDir: string;
   private session: Session;
   private configurationDone = new Subject();
@@ -30,9 +30,9 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
     private consoleTerminal: ConsoleTerminal,
     private terminal: Terminal,
     private status: StatusBar) {
-    super("ghci-debug.txt");
-    this.rootDir = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath || '.';
-    this.consoleTerminal.onDidInput(this.didInput, this, this.subscriptions);
+      super();
+      this.rootDir = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath || '.';
+      this.consoleTerminal.onDidInput(this.didInput, this, this.subscriptions);
   }
 
 	/**
@@ -76,9 +76,6 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
   }
 
   protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
-    // make sure to 'Stop' the buffered logging if 'trace' is not set
-    logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
-
     const resource = vscode.workspace.workspaceFolders ?
       vscode.workspace.workspaceFolders[0] :
       vscode.window.activeTextEditor.document;

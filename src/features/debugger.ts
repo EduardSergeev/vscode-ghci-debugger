@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
-import { ProviderResult, DebugAdapterInlineImplementation, DebugAdapterDescriptorFactory, DebugAdapterDescriptor, ExtensionContext, StatusBarAlignment } from 'vscode';
-import DebugSession from './debugger/debugSession';
+import { ProviderResult, DebugAdapterInlineImplementation, DebugAdapterDescriptorFactory, DebugAdapterDescriptor, ExtensionContext, StatusBarAlignment, DebugSession } from 'vscode';
+import Debug from './debugger/debug';
 import ConfigurationProvider from './debugger/configurationProvider';
-import SessionManager from '../ghci/sessionManager';
 import ConsoleTerminal from './debugger/console';
 import StatusBar from './debugger/statusBar';
+import SessionManager from '../ghci/sessionManager';
 
 export default class Debugger {
   public static openOutputCommandId = 'ghci-debugger.openOutput';
@@ -43,8 +43,8 @@ export default class Debugger {
       openOutputCommand);
 
     class InlineDebugAdapterFactory implements DebugAdapterDescriptorFactory {
-      createDebugAdapterDescriptor(_session: vscode.DebugSession): ProviderResult<DebugAdapterDescriptor> {
-        return new DebugAdapterInlineImplementation(new DebugSession(sessionManager, console, terminal, statusBar));
+      createDebugAdapterDescriptor(_session: DebugSession): ProviderResult<DebugAdapterDescriptor> {
+        return new DebugAdapterInlineImplementation(new Debug(sessionManager, console, terminal, statusBar));
       }
     }
 
