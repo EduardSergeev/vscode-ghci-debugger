@@ -8,6 +8,7 @@ import Session from '../../ghci/session';
 import SessionManager from '../../ghci/sessionManager';
 import Configuration from './configuration';
 import ConsoleTerminal from './console';
+import StatusBar from './statusBar';
 const { Subject } = require('await-notify');
 
 
@@ -27,7 +28,8 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
   public constructor(
     private sessionManager: SessionManager,
     private consoleTerminal: ConsoleTerminal,
-    private terminal: Terminal) {
+    private terminal: Terminal,
+    private status: StatusBar) {
     super("ghci-debug.txt");
     this.rootDir = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath || '.';
     this.consoleTerminal.onDidInput(this.didInput, this, this.subscriptions);
@@ -85,12 +87,16 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
     this.session.ghci.data(this.didOutput, this, this.subscriptions);
 
     if(this.rootDir !== '.') {
-      await this.session.ghci.sendCommand(
-        `:l ${args.module}`
+      await this.status.withStatus(
+        this.session.ghci.sendCommand(
+          `:l ${args.module}`
+        ), 'Loading project...'
       );
     } else {
-      await this.session.ghci.sendCommand(
-        `:l ${vscode.window.activeTextEditor.document.uri.fsPath}`
+      await this.status.withStatus(
+        this.session.ghci.sendCommand(
+          `:l ${vscode.window.activeTextEditor.document.uri.fsPath}`
+        ), 'Loading file...'
       );
     }
 

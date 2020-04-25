@@ -5,10 +5,11 @@ import GhciManager from "./ghci";
 import { stackCommand, reportError } from './utils';
 import { Resource, asWorkspaceFolder } from './resource';
 import { Project } from './project';
+import { ChildProcess } from 'child_process';
 
 export default class Session implements vscode.Disposable {
   ghci: GhciManager;
-  starting: Promise<void> | null;
+  starting: Promise<ChildProcess> | null;
   loading: Promise<void>;
   typeCache: Promise<string[]> | null;
   moduleMap: Map<string, string>;
@@ -22,22 +23,18 @@ export default class Session implements vscode.Disposable {
     public resource: Resource,
     private targets: string,
     private ghciOptions: string[]) {
-    this.ghci = null;
     this.starting = null;
     this.loading = null;
     this.typeCache = null;
     this.moduleMap = new Map();
     this.cwdOption = asWorkspaceFolder(resource) ? { cwd: resource.uri.fsPath } : {};
-    this.wasDisposed = false;
+    this.ghci = new GhciManager(
+      this.cwdOption,
+      this.outputChannel
+    );
   }
 
-  checkDisposed() {
-    if (this.wasDisposed) {
-      throw new Error('session already disposed');
-    }
-  }
-
-  start() {
+ start() {
     if (this.starting === null) {
       this.starting = this.startP();
       this.starting.catch(err => {
@@ -63,47 +60,40 @@ export default class Session implements vscode.Disposable {
     return this.starting;
   }
 
-  async startP() {
-    if (this.ghci === null) {
-      this.checkDisposed();
-      const wst = this.projectType;
+  startP() {
+    const wst = this.projectType;
 
-      const ghciParams = (prefix?: string, postfix?: string) =>
-        this.ghciOptions ? `${prefix || ''}${this.ghciOptions}${postfix || ''}` : "";
+    const ghciParams = (prefix?: string, postfix?: string) =>
+      this.ghciOptions ? `${prefix || ''}${this.ghciOptions}${postfix || ''}` : "";
 
-      const cmd = await (async () => {
-        if (wst === 'stack') {
-          return `${stackCommand} repl${ghciParams(' --ghci-options "', '"')} ${this.targets}`;
-        } else if (wst === 'cabal') {
-          return `cabal repl${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
-        }
-        else if (wst === 'cabal new') {
-          return `cabal new-repl ${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
-        }
-        else if (wst === 'cabal v2') {
-          return `cabal v2-repl ${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
-        }
-        else if (wst === 'bare-stack') {
-          return `${stackCommand} exec ghci ${this.targets}${ghciParams(' -- ')}`;
-        }
-        else if (wst === 'bare') {
-          return `ghci ${this.targets}${ghciParams(' ')}`;
-        }
-      })();
+    const cmd = (() => {
+      if (wst === 'stack') {
+        return `${stackCommand} repl${ghciParams(' --ghci-options "', '"')} ${this.targets}`;
+      } else if (wst === 'cabal') {
+        return `cabal repl${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
+      }
+      else if (wst === 'cabal new') {
+        return `cabal new-repl ${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
+      }
+      else if (wst === 'cabal v2') {
+        return `cabal v2-repl ${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
+      }
+      else if (wst === 'bare-stack') {
+        return `${stackCommand} exec ghci ${this.targets}${ghciParams(' -- ')}`;
+      }
+      else if (wst === 'bare') {
+        return `ghci ${this.targets}${ghciParams(' ')}`;
+      }
+    })();
 
-      this.outputChannel.appendLine(`Starting GHCi with: ${JSON.stringify(cmd)}`);
-      this.outputChannel.appendLine(
-        `(Under ${
-        this.cwdOption.cwd === undefined
-          ? 'default cwd'
-          : `cwd ${ this.cwdOption.cwd }` })`);
+    this.outputChannel.appendLine(`Starting GHCi with: ${JSON.stringify(cmd)}`);
+    this.outputChannel.appendLine(
+      `(Under ${
+      this.cwdOption.cwd === undefined
+        ? 'default cwd'
+        : `cwd ${ this.cwdOption.cwd }` })`);
 
-      this.ghci = new GhciManager(
-        cmd,
-        this.cwdOption,
-        this.outputChannel
-      );
-    }
+    return this.ghci.start(cmd);
   }
 
   reload(): Promise<string[]> {
@@ -114,7 +104,7 @@ export default class Session implements vscode.Disposable {
   }
 
   async reloadP(): Promise<string[]> {
-    await this.start();
+    // await this.start();
     const modules = await this.ghci.sendCommand(':show modules');
 
     this.moduleMap.clear();

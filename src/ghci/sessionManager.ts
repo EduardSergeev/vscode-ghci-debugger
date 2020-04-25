@@ -3,6 +3,7 @@ import Session from "./session";
 import { Resource, asWorkspaceFolder } from "./resource";
 import { computeFileType, getWorkspaceType, ConfiguredProject } from "./project";
 import { equal } from "./utils";
+import StatusBar from "../features/debugger/statusBar";
 
 export default class SessionManager implements Disposable {
   private session?: Session;
@@ -10,9 +11,11 @@ export default class SessionManager implements Disposable {
   private projectType?: ConfiguredProject;
   private targets: string;
   private ghciOptions?: string[];
+  private setStatus: (string) => void;
 
   public constructor(
-    private outputChannel: OutputChannel) {
+    private outputChannel: OutputChannel,
+    private statusBar: StatusBar) {
   }
 
   public async getSession(resource: Resource, projectType: ConfiguredProject, targets: string, ghciOptions: string[] = []): Promise<Session> {
@@ -28,8 +31,21 @@ export default class SessionManager implements Disposable {
         this.projectType = projectType;
         this.targets = targets;
         this.ghciOptions = ghciOptions;
-        this.session = await this.startSession(this.outputChannel);
-        await this.session.reload();
+        this.session = await
+          this.statusBar.withStatus(
+            this.startSession(this.outputChannel),
+            'Loading GHCi...'
+          );
+        this.session.start();
+        const loading = this.statusBar.withStatus1(
+          this.session.reload(),
+          statusSetter => {
+            this.setStatus = statusSetter; 
+          }
+        );
+        this.session.ghci.stdout.on('line', data => this.handleData(data));
+        this.session.ghci.stderr.on('line', data => this.handleData(data));
+        await loading;
     } 
     return this.session;
   }
@@ -46,5 +62,9 @@ export default class SessionManager implements Disposable {
       await getWorkspaceType(this.projectType, folder) :
       await computeFileType();
     return new Session(outputChannel, type, this.resource, this.targets, ['-w'].concat(this.ghciOptions));
+  }
+
+  private handleData(line: string) {
+    this.setStatus(`Loading project: ${line}`);
   }
 }
