@@ -29,6 +29,7 @@ export default class SessionManager implements Disposable {
         this.targets = targets;
         this.ghciOptions = ghciOptions;
         this.session = await this.startSession(this.outputChannel);
+        await this.session.reload();
     } 
     return this.session;
   }

@@ -77,10 +77,10 @@ export default class GhciManager implements Disposable {
 
     this.proc.stdout.on('data', (data) => {
       if(this.currentCommand && this.currentCommand.captureOutput) {
-        this.outputChannel.appendLine(`data+ | ${data}`);
+        // this.outputChannel.appendLine(`data+ | ${data}`);
         this.dataEmitter.fire(`${data}`);
       } else {
-        this.outputChannel.appendLine(`data- | ${data}`);
+        // this.outputChannel.appendLine(`data- | ${data}`);
       }
     });
     this.stdout = this.makeReadline(this.proc.stdout);

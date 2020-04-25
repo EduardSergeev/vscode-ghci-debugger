@@ -82,8 +82,6 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
       vscode.window.activeTextEditor.document;
 
     this.session = await this.sessionManager.getSession(resource, args.project, args.targets);
-    await this.session.reload();
-    await this.session.loading;
     this.session.ghci.data(this.didOutput, this, this.subscriptions);
 
     if(this.rootDir !== '.') {

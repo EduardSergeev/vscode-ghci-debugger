@@ -106,7 +106,7 @@ export default class Session implements vscode.Disposable {
     }
   }
 
-  async reload(): Promise<string[]> {
+  reload(): Promise<string[]> {
     this.typeCache = null;
     const pr = this.reloadP();
     this.loading = pr.then(() => undefined);
@@ -128,7 +128,6 @@ export default class Session implements vscode.Disposable {
         this.moduleMap.set(fullPath.toLowerCase(), module);
       }
     }
-    // await this.ghci.sendCommand(':module');
     return modules;
   }
 
