@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { ProviderResult, DebugAdapterInlineImplementation, DebugAdapterDescriptorFactory, DebugAdapterDescriptor, ExtensionContext, StatusBarAlignment, DebugSession } from 'vscode';
 import Debug from './debugger/debug';
 import ConfigurationProvider from './debugger/configurationProvider';
-import ConsoleTerminal from './debugger/console';
+import Console from './debugger/console';
 import StatusBar from './debugger/statusBar';
 import SessionManager from '../ghci/sessionManager';
 
@@ -10,9 +10,9 @@ export default class Debugger {
   public static openOutputCommandId = 'ghci-debugger.openOutput';
 
   private static outputChannelTitle = 'GHCi Debugger';
-  private static statusBatTooltip = 'Bare GHCi Debugger\nClick to open log output';
+  private static statusBatTooltip = 'GHCi Debugger\nClick to open log output';
   private static statusBarBusyPrefix = '$(debug-alt) ';
-  private static terminalTitle = 'GHCi Debug Terminal';
+  private static consoleTitle = 'GHCi Debugger Console';
 
   public activate(context: ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel(Debugger.outputChannelTitle);
@@ -24,9 +24,9 @@ export default class Debugger {
 
     const sessionManager = new SessionManager(outputChannel, statusBar);
 
-    const console = new ConsoleTerminal();
+    const console = new Console();
     const terminal = vscode.window.createTerminal({
-      name: Debugger.terminalTitle,
+      name: Debugger.consoleTitle,
       pty: console
     });
 

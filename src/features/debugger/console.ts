@@ -1,6 +1,6 @@
-import { Pseudoterminal, Event, TerminalDimensions, EventEmitter, Disposable } from "vscode";
+import { Pseudoterminal, Event, TerminalDimensions, EventEmitter } from "vscode";
 
-export default class ConsoleTerminal implements Pseudoterminal {
+export default class Console implements Pseudoterminal {
   private writeEmitter: EventEmitter<string>;
   private readEmitter: EventEmitter<string>;
 
@@ -16,7 +16,7 @@ export default class ConsoleTerminal implements Pseudoterminal {
   public onDidInput: Event<string>;
 
 
-  public open(initialDimensions: TerminalDimensions): void {
+  public open(_initialDimensions: TerminalDimensions): void {
   }
 
   public close(): void {

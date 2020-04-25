@@ -7,7 +7,7 @@ import LaunchRequestArguments from './launchRequestArguments';
 import Session from '../../ghci/session';
 import SessionManager from '../../ghci/sessionManager';
 import Configuration from './configuration';
-import ConsoleTerminal from './console';
+import Console from './console';
 import StatusBar from './statusBar';
 const { Subject } = require('await-notify');
 
@@ -27,7 +27,7 @@ export default class Debug extends DebugSession implements Disposable {
 
   public constructor(
     private sessionManager: SessionManager,
-    private consoleTerminal: ConsoleTerminal,
+    private consoleTerminal: Console,
     private terminal: Terminal,
     private status: StatusBar) {
       super();
