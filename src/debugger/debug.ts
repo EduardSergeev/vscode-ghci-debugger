@@ -438,7 +438,7 @@ export default class Debug extends DebugSession implements Disposable {
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):(\d+):(\d+)/m) ||
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/m);
     if (match) {
-      const [ , out, name, modPath, line, column ] = match;
+      const [ , _output, name, modPath, line, column ] = match;
       const fullPath = path.isAbsolute(modPath) ? modPath : path.join(this.rootDir, modPath);
       const module = this.session.getModuleName(fullPath);
       this.stoppedAt =
@@ -459,8 +459,7 @@ export default class Debug extends DebugSession implements Disposable {
         this.sendEvent(new StoppedEvent('step', 1));
       }
     } else if (match = output.match(/(?:\[.*\] )?([\s\S]*)(^\*\*\* Exception: [\s\S]*)/m)) {
-      const [, out, exception] = match;
-      this.consoleTerminal.sendData(out);
+      const [, _output, exception] = match;
       this.consoleTerminal.sendData(exception);
       this.sendEvent(new TerminatedEvent());
     } else if (match = output.match(/(?:\[.*\] )?([\s\S]*)Stopped in <exception thrown>/m)) {
@@ -482,8 +481,7 @@ export default class Debug extends DebugSession implements Disposable {
       };
       this.sendEvent(new StoppedEvent('exception', 1));
     } else {
-      const [, out] = output.match(/(?:\[.*\] )?([\s\S]*)/);
-      this.consoleTerminal.sendData(out);
+      const [, _output] = output.match(/(?:\[.*\] )?([\s\S]*)/);
       this.sendEvent(new TerminatedEvent());
     }
   }
