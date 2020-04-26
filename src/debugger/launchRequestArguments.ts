@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { Project } from '../../ghci/project';
+import { Project } from '../ghci/project';
 
 
 export default interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments, vscode.DebugConfiguration {
@@ -10,6 +10,4 @@ export default interface LaunchRequestArguments extends DebugProtocol.LaunchRequ
   expression?: string;
   /** Automatically stop target after launch. If not specified, target does not stop. */
   stopOnEntry?: boolean;
-  /** enable logging the Debug Adapter Protocol */
-  trace?: boolean;
 }

@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { DebugConfigurationProvider, WorkspaceFolder, CancellationToken } from "vscode";
-import { getStackIdeTargets, getCabalTargets } from '../../ghci/utils';
-import Session from '../../ghci/session';
-import SessionManager from '../../ghci/sessionManager';
-import { Resource, asWorkspaceFolder } from '../../ghci/resource';
-import { ConfiguredProject, getProjectConfigurations, Project } from '../../ghci/project';
+import { getStackIdeTargets, getCabalTargets } from '../ghci/utils';
+import Session from '../ghci/session';
+import SessionManager from '../ghci/sessionManager';
+import { Resource, asWorkspaceFolder } from '../ghci/resource';
+import { ConfiguredProject, getProjectConfigurations, Project } from '../ghci/project';
 import LaunchRequestArguments from './launchRequestArguments';
 
 export default class ConfigurationProvider implements DebugConfigurationProvider {

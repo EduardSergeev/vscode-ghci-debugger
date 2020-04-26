@@ -1,10 +1,10 @@
-import { OutputChannel, Disposable } from "vscode";
+import { Disposable } from "vscode";
 import Session from "./session";
 import { Resource, asWorkspaceFolder } from "./resource";
 import { computeFileType, getWorkspaceType, ConfiguredProject } from "./project";
 import { equal } from "./utils";
-import StatusBar from "../features/debugger/statusBar";
-import Output from "../features/output";
+import StatusBar from "../statusBar";
+import Output from "../output";
 
 export default class SessionManager implements Disposable {
   private disposables: Disposable[] = [];
@@ -70,7 +70,13 @@ export default class SessionManager implements Disposable {
     const type = folder ?
       await getWorkspaceType(this.projectType, folder) :
       await computeFileType();
-    return new Session(output, type, this.resource, this.targets, ['-w'].concat(this.ghciOptions));
+    return new Session(
+      output,
+      type,
+      this.resource,
+      this.targets,
+      ['-w'].concat(this.ghciOptions)
+    );
   }
 
   private handleData(line: string) {

@@ -1,5 +1,6 @@
 import { ExtensionContext } from 'vscode';
-import Debugger from './features/debugger';
+import Debugger from './debugger';
+
 
 export function activate(context: ExtensionContext) {
   const provider = new Debugger();

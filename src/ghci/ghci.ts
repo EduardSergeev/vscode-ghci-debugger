@@ -2,7 +2,7 @@ import * as child_process from 'child_process';
 import * as readline from 'readline';
 import * as process from 'process';
 import { Disposable, CancellationToken, Event, EventEmitter } from "vscode";
-import Output from '../features/output';
+import Output from '../output';
 
 interface StrictCommandConfig {
   token: CancellationToken;
@@ -65,9 +65,7 @@ export default class GhciManager implements Disposable {
     this.proc.stdout.on('data', (data) => {
       this.rawDataEmitter.fire(data);
       if(this.currentCommand && this.currentCommand.captureOutput) {
-        this.dataEmitter.fire(data);
-      } else {
-
+        this.dataEmitter.fire(`${data}`);
       }
     });
     this.stdout = this.makeReadline(this.proc.stdout);

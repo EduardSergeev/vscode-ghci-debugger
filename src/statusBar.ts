@@ -1,5 +1,6 @@
 import { StatusBarItem } from "vscode";
 
+
 export default class StatusBar {
   private statusSetter: (status: string) => void;
   constructor(

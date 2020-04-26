@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
 import * as Path from 'path';
-import { OutputChannel } from 'vscode';
 import GhciManager from "./ghci";
-import { stackCommand, reportError } from './utils';
+import { stackCommand } from './utils';
 import { Resource, asWorkspaceFolder } from './resource';
 import { Project } from './project';
 import { ChildProcess } from 'child_process';
-import Output from '../features/output';
+import Output from '../output';
 
 export default class Session implements vscode.Disposable {
   ghci: GhciManager;
@@ -16,20 +15,18 @@ export default class Session implements vscode.Disposable {
   moduleMap: Map<string, string>;
   cwdOption: { cwd?: string };
 
-  wasDisposed: boolean;
-
   constructor(
     public output: Output,
     public projectType: Project,
     public resource: Resource,
     private targets: string,
     private ghciOptions: string[]) {
-    this.starting = null;
-    this.loading = null;
-    this.typeCache = null;
-    this.moduleMap = new Map();
-    this.cwdOption = asWorkspaceFolder(resource) ? { cwd: resource.uri.fsPath } : {};
-    this.ghci = new GhciManager(this.cwdOption, output);
+      this.starting = null;
+      this.loading = null;
+      this.typeCache = null;
+      this.moduleMap = new Map();
+      this.cwdOption = asWorkspaceFolder(resource) ? { cwd: resource.uri.fsPath } : {};
+      this.ghci = new GhciManager(this.cwdOption, output);
   }
 
  start() {
@@ -99,7 +96,6 @@ export default class Session implements vscode.Disposable {
   }
 
   async reloadP(): Promise<string[]> {
-    // await this.start();
     const modules = await this.ghci.sendCommand(':show modules');
 
     this.moduleMap.clear();
@@ -121,7 +117,6 @@ export default class Session implements vscode.Disposable {
   }
 
   dispose() {
-    this.wasDisposed = true;
     if (this.ghci !== null) {
       this.ghci.dispose();
     }

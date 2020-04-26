@@ -1,18 +1,7 @@
-import * as vscode from 'vscode';
-import { OutputChannel } from 'vscode';
 import * as child_process from 'child_process';
 
 
-export const haskellSymbolRegex = /([A-Z][A-Za-z0-9_']*\.)*([!#$%&*+./<=>?@\^|\-~:]+|[A-Za-z_][A-Za-z0-9_']*)/;
-export const haskellReplLine = /^(\s*-{2,}\s+)?>>>(.*)$/;
 export const stackCommand = 'stack --no-terminal --color never';
-
-export function reportError(outputChannel: OutputChannel, msg: string) {
-  return (err) => {
-    console.error(`${ msg }: ${ err }`);
-    outputChannel.appendLine(`${ msg }: ${ err }`);
-  };
-}
 
 export async function getStackIdeTargets(cwdOption: { cwd?: string }) {
   const result = await new Promise<string>((resolve, reject) => {
@@ -55,12 +44,6 @@ export async function getCabalTargets(configure: string, cwdOption: { cwd?: stri
     );
   }
   return targets;
-}
-
-export async function pickTarget(targets: string[]) {
-  return targets.length > 1 ?
-    await vscode.window.showQuickPick(targets, { placeHolder: "Select target to debug" }) :
-    targets[0];
 }
 
 export function equal(left: string[], right: string[]): Boolean {

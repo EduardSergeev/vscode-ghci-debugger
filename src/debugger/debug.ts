@@ -4,11 +4,11 @@ import { Disposable, Terminal } from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { StackFrame, InitializedEvent, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, DebugSession } from "vscode-debugadapter";
 import LaunchRequestArguments from './launchRequestArguments';
-import Session from '../../ghci/session';
-import SessionManager from '../../ghci/sessionManager';
-import Configuration from './configuration';
-import Console from './console';
-import StatusBar from './statusBar';
+import Session from '../ghci/session';
+import SessionManager from '../ghci/sessionManager';
+import Configuration from '../configuration';
+import Console from '../console';
+import StatusBar from '../statusBar';
 const { Subject } = require('await-notify');
 
 
@@ -344,11 +344,11 @@ export default class Debug extends DebugSession implements Disposable {
         const output = await this.session.ghci.sendCommand(
           args.expression
         );
-        if (output[ 0 ].length) {
-          const match = output[ 0 ].match(/\[.+\]\s+(.+)/);
+        if (output[0].length) {
+          const match = output[0].match(/\[.+\]\s+(.+)/);
           if (match) {
             response.body = {
-              result: match[ 1 ],
+              result: match[1],
               variablesReference: 0
             };
           }

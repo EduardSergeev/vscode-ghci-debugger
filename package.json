@@ -77,11 +77,6 @@
                 "type": "boolean",
                 "description": "Automatically stop after launch.",
                 "default": false
-              },
-              "trace": {
-                "type": "boolean",
-                "description": "Enable logging of the Debug Adapter Protocol.",
-                "default": false
               }
             }
           }

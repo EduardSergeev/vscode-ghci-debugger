@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import { ProviderResult, DebugAdapterInlineImplementation, DebugAdapterDescriptorFactory, DebugAdapterDescriptor, ExtensionContext, StatusBarAlignment, DebugSession } from 'vscode';
 import Debug from './debugger/debug';
 import ConfigurationProvider from './debugger/configurationProvider';
-import Console from './debugger/console';
-import StatusBar from './debugger/statusBar';
-import SessionManager from '../ghci/sessionManager';
+import Console from './console';
+import StatusBar from './statusBar';
+import SessionManager from './ghci/sessionManager';
 import Output from './output';
 
 export default class Debugger {
