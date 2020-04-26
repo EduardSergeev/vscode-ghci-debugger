@@ -6,6 +6,7 @@ import Console from './console';
 import StatusBar from './statusBar';
 import SessionManager from './ghci/sessionManager';
 import Output from './output';
+import OutputLinkProvider from './outputLinkProvider';
 
 export default class Debugger {
   public static openOutputCommandId = 'ghci-debugger.openOutput';
@@ -43,6 +44,8 @@ export default class Debugger {
       pty: console
     });
 
+    const linkProvider = vscode.languages.registerDocumentLinkProvider('ghci', new OutputLinkProvider());
+
     const openOutputCommand = vscode.commands.registerCommand(
       Debugger.openOutputCommandId,
       () => output.show()
@@ -53,7 +56,8 @@ export default class Debugger {
       sessionManager,
       terminal,
       statusBarItem,
-      openOutputCommand);
+      openOutputCommand,
+      linkProvider);
 
     class InlineDebugAdapterFactory implements DebugAdapterDescriptorFactory {
       createDebugAdapterDescriptor(_session: DebugSession): ProviderResult<DebugAdapterDescriptor> {
