@@ -31,14 +31,11 @@ export default class GhciManager implements Disposable {
   public data: Event<string>;
   public rawData: Event<string>;
 
-  wasDisposed: boolean;
-
   constructor(
     private options: any,
     private output: Output) {
       this.proc = null;
       this.options = options;
-      this.wasDisposed = false;
       this.dataEmitter = new EventEmitter<string>();
       this.data = this.dataEmitter.event;
       this.rawDataEmitter = new EventEmitter<string>();
@@ -68,8 +65,9 @@ export default class GhciManager implements Disposable {
     this.proc.stdout.on('data', (data) => {
       this.rawDataEmitter.fire(data);
       if(this.currentCommand && this.currentCommand.captureOutput) {
-        this.dataEmitter.fire(`${data}`);
+        this.dataEmitter.fire(data);
       } else {
+
       }
     });
     this.stdout = this.makeReadline(this.proc.stdout);
@@ -105,25 +103,16 @@ export default class GhciManager implements Disposable {
 
   pendingCommands: PendingCommand[] = [];
 
-  sendCommand(
-    command: string,
-    config: CommandConfig = {}):
-    Promise<string[]> {
+  sendData(data: string) {
+    this.proc.stdin.write(data);
+  }
+
+  sendCommand(command: string, config: CommandConfig = {}): Promise<string[]> {
     if (config.token) {
       config.token.onCancellationRequested(
         this.handleCancellation.bind(this)
       );
     }
-    return this._sendCommand(command, config);
-  }
-
-  sendData(data: string) {
-    this.proc.stdin.write(data);
-  }
-
-
-  _sendCommand(command: string, config: CommandConfig = {}):
-    Promise<string[]> {
     return new Promise((resolve, reject) => {
       const nullConfig: StrictCommandConfig = {
         token: null,
@@ -144,7 +133,7 @@ export default class GhciManager implements Disposable {
     });
   }
 
-  handleLine(line: string) {
+  handleLine(line: string): void {
     if (this.currentCommand === null) {
       this.output.warning(`Orphant line received (no command running), ignoring: '${line}'`);
     } else {
@@ -165,7 +154,7 @@ export default class GhciManager implements Disposable {
     }
   }
 
-  handleCancellation() {
+  handleCancellation(): void {
     while (this.pendingCommands.length > 0
       && this.pendingCommands[0].token
       && this.pendingCommands[0].token.isCancellationRequested) {
@@ -196,8 +185,6 @@ export default class GhciManager implements Disposable {
   }
 
   dispose() {
-    this.wasDisposed = true;
-
     if (this.proc !== null) {
       this.proc.kill();
       this.proc = null;

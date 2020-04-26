@@ -35,7 +35,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
         );
 
       config.expression = config.module &&
-        await this.getFunction(
+        await this.getExpression(
           await this.sessionManager.getSession(folder, config.project, config.targets),
           config.module
         );
@@ -109,7 +109,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
 
       do {
         config.expression = config.expression ||
-          await this.getFunction(
+          await this.getExpression(
             await this.sessionManager.getSession(resource, config.project, config.targets),
             config.module
           );
@@ -181,7 +181,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       modules[0];
   }
 
-  private async getFunction(session: Session, module: string): Promise<string | undefined> {
+  private async getExpression(session: Session, module: string): Promise<string | undefined> {
     const functions = await session.ghci.sendCommand(
       `:browse ${module}`
     );
