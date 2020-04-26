@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>scopeName</key>
+    <string>code.ghci</string>
+    <key>fileTypes</key>
+    <array>
+      <string>ghci</string>
+    </array>
+    <key>name</key>
+    <string>GHCi log file</string>
+    <key>patterns</key>
+    <array>
+      <dict>
+        <!-- Command -->
+        <key>match</key>
+        <string>^‌λ .*$</string>
+        <key>name</key>
+        <string>markup.inline.raw</string>
+      </dict>
+      <dict>
+        <!-- Error/warning -->
+        <key>match</key>
+        <string>^‌‌.*$</string>
+        <key>name</key>
+        <string>invalid</string>
+      </dict>
+      <dict>
+        <!-- Info -->
+        <key>match</key>
+        <string>^‌.*$</string>
+        <key>name</key>
+        <string>comment</string>
+      </dict>
+      <dict>
+        <!-- λ -->
+        <key>match</key>
+        <string>λ</string>
+        <key>name</key>
+        <string>keyword</string>
+      </dict>
+      <dict>
+        <!-- Generic URI/URL -->
+        <key>match</key>
+        <string>(?:https|http|file):\/\/\S+</string>
+        <key>name</key>
+        <string>storage</string>
+      </dict>
+      <dict>
+        <!-- Source path -->
+        <key>match</key>
+        <string>[\w/]+\.hs</string>
+        <key>name</key>
+        <string>storage</string>
+      </dict>
+    </array>
+    <key>uuid</key>
+    <string>ab259404-3072-4cd4-a943-7cbbd32e373f</string>
+  </dict>
+</plist>

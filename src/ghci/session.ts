@@ -6,6 +6,7 @@ import { stackCommand, reportError } from './utils';
 import { Resource, asWorkspaceFolder } from './resource';
 import { Project } from './project';
 import { ChildProcess } from 'child_process';
+import Output from '../features/output';
 
 export default class Session implements vscode.Disposable {
   ghci: GhciManager;
@@ -18,7 +19,7 @@ export default class Session implements vscode.Disposable {
   wasDisposed: boolean;
 
   constructor(
-    public outputChannel: OutputChannel,
+    public output: Output,
     public projectType: Project,
     public resource: Resource,
     private targets: string,
@@ -28,28 +29,21 @@ export default class Session implements vscode.Disposable {
     this.typeCache = null;
     this.moduleMap = new Map();
     this.cwdOption = asWorkspaceFolder(resource) ? { cwd: resource.uri.fsPath } : {};
-    this.ghci = new GhciManager(
-      this.cwdOption,
-      this.outputChannel
-    );
+    this.ghci = new GhciManager(this.cwdOption, output);
   }
 
  start() {
     if (this.starting === null) {
       this.starting = this.startP();
       this.starting.catch(err => {
-        if (this.wasDisposed) {
-          // We are disposed so do not report error
-          return;
-        }
-        reportError(this.outputChannel, err.toString());
+        this.output.ghciError(err.toString());
         vscode.window.showWarningMessage(
           'Error while starting GHCi.',
           'Open log'
         ).then(
           (item) => {
             if (item === 'Open log') {
-              this.outputChannel.show();
+              this.output.show();
             }
           },
           (err) => console.error(err)
@@ -86,12 +80,13 @@ export default class Session implements vscode.Disposable {
       }
     })();
 
-    this.outputChannel.appendLine(`Starting GHCi with: ${JSON.stringify(cmd)}`);
-    this.outputChannel.appendLine(
+    this.output.info(`Starting GHCi with: '${cmd}'`);
+    this.output.info(
       `(Under ${
       this.cwdOption.cwd === undefined
         ? 'default cwd'
-        : `cwd ${ this.cwdOption.cwd }` })`);
+        : `cwd ${ this.cwdOption.cwd }` })`
+    );
 
     return this.ghci.start(cmd);
   }

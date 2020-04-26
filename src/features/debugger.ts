@@ -5,6 +5,7 @@ import ConfigurationProvider from './debugger/configurationProvider';
 import Console from './debugger/console';
 import StatusBar from './debugger/statusBar';
 import SessionManager from '../ghci/sessionManager';
+import Output from './output';
 
 export default class Debugger {
   public static openOutputCommandId = 'ghci-debugger.openOutput';
@@ -15,14 +16,26 @@ export default class Debugger {
   private static consoleTitle = 'GHCi Debugger Console';
 
   public activate(context: ExtensionContext) {
-    const outputChannel = vscode.window.createOutputChannel(Debugger.outputChannelTitle);
+
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+      if (editor.document.fileName.startsWith('extension-output')) {
+        const firstLine = editor.document.lineAt(0).text;
+        if (!firstLine || firstLine.startsWith('‌Starting GHCi with')) {
+          vscode.languages.setTextDocumentLanguage(editor.document, 'ghci');
+        }
+      } else {
+        vscode.languages.setTextDocumentLanguage(editor.document, editor.document.languageId);
+      } 
+    }, this, context.subscriptions);
+
+    const output = new Output(vscode.window.createOutputChannel(Debugger.outputChannelTitle));
 
     const statusBarItem = vscode.window.createStatusBarItem(StatusBarAlignment.Left);
     statusBarItem.tooltip = Debugger.statusBatTooltip;
     statusBarItem.command = Debugger.openOutputCommandId;
     const statusBar = new StatusBar(statusBarItem, Debugger.statusBarBusyPrefix);
 
-    const sessionManager = new SessionManager(outputChannel, statusBar);
+    const sessionManager = new SessionManager(output, statusBar);
 
     const console = new Console();
     const terminal = vscode.window.createTerminal({
@@ -32,11 +45,11 @@ export default class Debugger {
 
     const openOutputCommand = vscode.commands.registerCommand(
       Debugger.openOutputCommandId,
-      () => outputChannel.show()
+      () => output.show()
     );
 
     context.subscriptions.push(
-      outputChannel,
+      output,
       sessionManager,
       terminal,
       statusBarItem,

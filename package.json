@@ -87,6 +87,23 @@
           }
         }
       }
+    ],
+    "languages": [
+      {
+        "id": "ghci",
+        "aliases": [
+          "ghci"
+        ],
+        "firstLine": "^‌Starting GHCi with.*",
+        "configuration": "./ghci.configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ghci",
+        "scopeName": "code.ghci",
+        "path": "./ghci.tmLanguage"
+      }
     ]
   },
   "scripts": {
