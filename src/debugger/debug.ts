@@ -12,6 +12,8 @@ import LaunchRequestArguments from './launchRequestArguments';
 
 
 export default class Debug extends DebugSession implements Disposable {
+  private static ThreadId: number = 1;
+
   private rootDir: string;
   private session: Session;
   private configurationDone: Promise<void>;
@@ -140,18 +142,15 @@ export default class Debug extends DebugSession implements Disposable {
         const [, id, line, column, endLineColumn, endColumn] =
           response[0].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)(?:-(\d+))?/) ||
           response[0].match(/Breakpoint\s(\d+).+?:\((\d+),(\d+)\)-\((\d+),(\d+)\)/);
-        const breakpoint = <DebugProtocol.Breakpoint>new Breakpoint(
-          true,
-          Number(line),
-          Number(column),
-          new Source(source.name, source.path));
-        breakpoint.id = Number(id);
-        if(endColumn) {
-          breakpoint.endLine = Number(endLineColumn);
-        } else if (endLineColumn) {
-          breakpoint.endLine = Number(line);
-          breakpoint.endColumn = Number(endLineColumn) + 1;
-        }
+        const breakpoint = {
+          id: Number(id),
+          verified: true,
+          line: Number(line),
+          column: Number(column),
+          source: new Source(source.name, source.path),
+          endLine: endColumn && Number(endLineColumn),
+          endColumn: endColumn && Number(endColumn) || endLineColumn && Number(endLineColumn)
+        };
         return breakpoint;
       })
     );
@@ -189,7 +188,7 @@ export default class Debug extends DebugSession implements Disposable {
   protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
     response.body = {
       threads: [
-        new Thread(1, "default")
+        new Thread(Debug.ThreadId, "default")
       ]
     };
     this.sendResponse(response);
@@ -276,7 +275,6 @@ export default class Debug extends DebugSession implements Disposable {
             type: type,
             value: value,
             evaluateName: name,
-            
             presentationHint: {
               kind: 'data',
               attributes: ['readOnly']
@@ -406,20 +404,16 @@ export default class Debug extends DebugSession implements Disposable {
     const [, id, line, column, endLineColumn, endColumn] =
       output[0].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)(?:-(\d+))?/) ||
       output[0].match(/Breakpoint\s(\d+).+?:\((\d+),(\d+)\)-\((\d+),(\d+)\)/);
-    let target = {
+    const target = {
       id: Number(id),
       label: id,
+      verified: true,
       line: Number(line),
       column: Number(column),
-      endLine: null,
-      endColumn: null
+      source: new Source(source.name, source.path),
+      endLine: endColumn && Number(endLineColumn),
+      endColumn: endColumn && Number(endColumn) || endLineColumn && Number(endLineColumn)
     };
-    if(endColumn) {
-      target.endLine = Number(endLineColumn);
-    } else if (endLineColumn) {
-      target.endLine = Number(line);
-      target.endColumn = Number(endLineColumn) + 1;
-    }
     response.body = {
       targets: [target]
     };
@@ -427,10 +421,13 @@ export default class Debug extends DebugSession implements Disposable {
   }
 
 
-  protected terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request): void {
-    this.session.ghci.sendCommand(
+  protected async terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request): Promise<void> {
+    await this.session.ghci.sendCommand(
       ':abandon'
-    ).then(response => this.didStop(response));
+    );
+    // await this.session.ghci.sendCommand(
+    //   ':delete *'
+    // );
     this.sendResponse(response);
   }
 
@@ -447,25 +444,25 @@ export default class Debug extends DebugSession implements Disposable {
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):(\d+):(\d+)/m) ||
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/m);
     if (match) {
-      const [ , _output, name, modPath, line, column ] = match;
+      const [, _output, name, modPath, line, column, endLineColumn, endColumn] = match;
       const fullPath = path.isAbsolute(modPath) ? modPath : path.join(this.rootDir, modPath);
       const module = this.session.getModuleName(fullPath);
-      this.stoppedAt =
-        new StackFrame(
-          Number(0),
-          name.split('.').slice(-1)[0],
-          new Source(path.basename(modPath), fullPath),
-          Number(line),
-          Number(column)
-        );
-
+      this.stoppedAt = {
+        id: Number(0),
+        name: name.split('.').slice(-1)[0],
+        source: new Source(path.basename(modPath), fullPath),
+        line: Number(line),
+        column: Number(column),
+        endLine: endColumn && Number(endLineColumn),
+        endColumn: endColumn && Number(endColumn) || endLineColumn && Number(endLineColumn)
+      };
       if (this.breakpoints.find(breakpoint =>
         breakpoint.source.name === module &&
         breakpoint.line === Number(line) &&
         breakpoint.column === Number(column))) {
-          this.sendEvent(new StoppedEvent('breakpoint', 1));
+          this.sendEvent(new StoppedEvent('breakpoint', Debug.ThreadId));
       } else {
-        this.sendEvent(new StoppedEvent('step', 1));
+        this.sendEvent(new StoppedEvent('step', Debug.ThreadId));
       }
     } else if (match = output.match(/(?:\[.*\] )?([\s\S]*)(^\*\*\* Exception: [\s\S]*)/m)) {
       const [, _output, exception] = match;
@@ -488,9 +485,9 @@ export default class Debug extends DebugSession implements Disposable {
         lines: lines.map(line => line.replace(/\[<unknown>\]\s+/g, '')),
         type: exceptionType
       };
-      this.sendEvent(new StoppedEvent('exception', 1));
+      this.sendEvent(new StoppedEvent('exception', Debug.ThreadId));
     } else {
-      const [, _output] = output.match(/(?:\[.*\] )?([\s\S]*)/);
+      // const [, _output] = output.match(/(?:\[.*\] )?([\s\S]*)/);
       this.sendEvent(new TerminatedEvent());
     }
   }
