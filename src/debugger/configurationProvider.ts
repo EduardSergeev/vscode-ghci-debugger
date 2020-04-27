@@ -23,10 +23,6 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       type: ConfigurationProvider.DebuggerType,
       request: ConfigurationProvider.DebuggerRequest,
       name: null,
-      project: null,
-      targets: null,
-      module: null,
-      expression: null,
       stopOnEntry: false
     };
 
@@ -155,7 +151,10 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       throw new Error("Could not find any Haskell to debug");
     }
     return types.length > 1 ?
-      await vscode.window.showQuickPick(types, { placeHolder: "Select Haskell project type to debug" }) :
+      await vscode.window.showQuickPick(
+        types,
+        { placeHolder: "Select Haskell project type to debug" }
+      ) :
       types[0];
   }
 
@@ -183,8 +182,6 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
   }
 
   private async getModule(session: Session): Promise<string | undefined> {
-    await session.reload();
-    await session.loading;
     const modules = Array
       .from(session.moduleMap.values())
       .sort((l, r) => l === 'Main' ? -1 : l.localeCompare(r));
@@ -192,7 +189,10 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       throw new Error("Could not find any module to debug");
     }
     return modules.length > 1 ?
-      await vscode.window.showQuickPick(modules, { placeHolder: "Select module to debug" }) :
+      await vscode.window.showQuickPick(
+        modules,
+        { placeHolder: "Select module to debug" }
+      ) :
       modules[0];
   }
 

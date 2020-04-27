@@ -13,5 +13,5 @@ export default interface LaunchRequestArguments extends DebugProtocol.LaunchRequ
   /** Haskell expression to debug. Must something that can be evaluated by REPL. */
   expression?: string;
   /** Automatically stop target after launch. If not specified, target does not stop. */
-  stopOnEntry?: boolean;
+  stopOnEntry: boolean;
 }
