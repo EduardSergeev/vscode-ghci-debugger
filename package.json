@@ -96,7 +96,7 @@
       {
         "language": "ghci-log",
         "scopeName": "code.ghci-log",
-        "path": "./ghci-log.tmLanguage"
+        "path": "./syntax/ghci-log.tmLanguage"
       }
     ]
   },

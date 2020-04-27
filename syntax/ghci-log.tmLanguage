@@ -17,42 +17,42 @@
         <key>match</key>
         <string>^‌λ .*$</string>
         <key>name</key>
-        <string>markup.inline.raw</string>
+        <string>command</string>
       </dict>
       <dict>
         <!-- Error/warning -->
         <key>match</key>
         <string>^‌‌.*$</string>
         <key>name</key>
-        <string>invalid</string>
+        <string>warning</string>
       </dict>
       <dict>
         <!-- Info -->
         <key>match</key>
         <string>^‌.*$</string>
         <key>name</key>
-        <string>comment</string>
+        <string>info</string>
       </dict>
       <dict>
         <!-- λ -->
         <key>match</key>
         <string>λ</string>
         <key>name</key>
-        <string>keyword</string>
+        <string>lambda</string>
       </dict>
       <dict>
         <!-- Generic URI/URL -->
         <key>match</key>
         <string>(?:https|http|file):\/\/\S+</string>
         <key>name</key>
-        <string>storage</string>
+        <string>url</string>
       </dict>
       <dict>
         <!-- Source path -->
         <key>match</key>
         <string>([\w\/]+\.hs)(?:[:-](?:\d+|\(\d+,\d+\)))*</string>
         <key>name</key>
-        <string>storage</string>
+        <string>path</string>
       </dict>
     </array>
     <key>uuid</key>
