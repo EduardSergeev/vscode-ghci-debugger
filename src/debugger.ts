@@ -18,14 +18,16 @@ export default class Debugger {
 
   public activate(context: ExtensionContext) {
 
-    vscode.window.onDidChangeActiveTextEditor(editor => {
-      if (editor.document.fileName.startsWith('extension-output')) {
-        const firstLine = editor.document.lineAt(0).text;
-        if (!firstLine || firstLine.startsWith('‌Starting GHCi with')) {
-          vscode.languages.setTextDocumentLanguage(editor.document, 'ghci');
-        }
-      } else {
-        vscode.languages.setTextDocumentLanguage(editor.document, editor.document.languageId);
+    // Until [it is directly supported](https://github.com/Microsoft/vscode/issues/11005)
+    // we have to use this hacky approach to set `ghci` language to our `OutputChannel`
+    vscode.window.onDidChangeVisibleTextEditors(editors => {
+      for (const editor of editors) {
+        if (editor.document.fileName.startsWith('extension-output')) {
+          const firstLine = editor.document.lineAt(0).text;
+          if (!firstLine || firstLine.startsWith('‌Starting GHCi with')) {
+            vscode.languages.setTextDocumentLanguage(editor.document, 'ghci');
+          }
+        } 
       } 
     }, this, context.subscriptions);
 
