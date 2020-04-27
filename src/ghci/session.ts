@@ -1,13 +1,14 @@
 import * as vscode from 'vscode';
 import * as Path from 'path';
 import GhciManager from "./ghci";
-import { stackCommand } from './utils';
 import { Resource, asWorkspaceFolder } from './resource';
 import { Project } from './project';
 import { ChildProcess } from 'child_process';
 import Output from '../output';
 
 export default class Session implements vscode.Disposable {
+  private static StackCommand = 'stack --no-terminal --color never';
+
   ghci: GhciManager;
   starting: Promise<ChildProcess> | null;
   loading: Promise<void>;
@@ -59,7 +60,7 @@ export default class Session implements vscode.Disposable {
 
     const cmd = (() => {
       if (wst === 'stack') {
-        return `${stackCommand} repl${ghciParams(' --ghci-options "', '"')} ${this.targets}`;
+        return `${Session.StackCommand} repl${ghciParams(' --ghci-options "', '"')} ${this.targets}`;
       } else if (wst === 'cabal') {
         return `cabal repl${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
       }
@@ -70,7 +71,7 @@ export default class Session implements vscode.Disposable {
         return `cabal v2-repl ${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
       }
       else if (wst === 'bare-stack') {
-        return `${stackCommand} exec ghci ${this.targets}${ghciParams(' -- ')}`;
+        return `${Session.StackCommand} exec ghci ${this.targets}${ghciParams(' -- ')}`;
       }
       else if (wst === 'bare') {
         return `ghci ${this.targets}${ghciParams(' ')}`;

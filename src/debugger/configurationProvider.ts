@@ -1,21 +1,28 @@
 import * as vscode from 'vscode';
+import * as child_process from 'child_process';
 import { DebugConfigurationProvider, WorkspaceFolder, CancellationToken } from "vscode";
-import { getStackIdeTargets, getCabalTargets } from '../ghci/utils';
 import Session from '../ghci/session';
 import SessionManager from '../ghci/sessionManager';
 import { Resource, asWorkspaceFolder } from '../ghci/resource';
 import { ConfiguredProject, getProjectConfigurations, Project } from '../ghci/project';
 import LaunchRequestArguments from './launchRequestArguments';
+import Output from '../output';
+
 
 export default class ConfigurationProvider implements DebugConfigurationProvider {
-  public constructor(private sessionManager: SessionManager) {
+  public static DebuggerType = 'ghci';
+  private static DebuggerRequest = 'launch';
+
+  public constructor(
+    private sessionManager: SessionManager,
+    private output: Output) {
   }
 
   async provideDebugConfigurations?(folder: WorkspaceFolder | undefined, token?: CancellationToken): Promise<LaunchRequestArguments[]> {
     let config: LaunchRequestArguments = {
-      type: 'ghci',
-      name: 'Launch',
-      request: 'launch',
+      type: ConfigurationProvider.DebuggerType,
+      request: ConfigurationProvider.DebuggerRequest,
+      name: null,
       project: null,
       targets: null,
       module: null,
@@ -55,9 +62,8 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
 	 * e.g. add all missing attributes to the debug configuration.
 	 */
   async resolveDebugConfiguration(folder: WorkspaceFolder | undefined, config: LaunchRequestArguments, token?: CancellationToken): Promise<LaunchRequestArguments> {
-    config.type = config.type || 'ghci';
-    config.request = config.request || 'launch';
-    config.name = config.name || 'Launch';
+    config.type = config.type || ConfigurationProvider.DebuggerType;
+    config.request = config.request || ConfigurationProvider.DebuggerRequest;
 
     const resource = folder || vscode.window.activeTextEditor.document;
 
@@ -124,9 +130,18 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
           }
         }
       } while (!config.expression);
+
+      config.name = config.name || [
+        config.project,
+        config.module,
+        config.expression
+      ].filter(x => x).join(' ');
+
     } catch (error) {
+      const message = `Error starting GHCi:\n${error}`;
+      this.output.error(message);
       await vscode.window.showErrorMessage(
-        `Error starting GHCi:\n${error}`,
+        message,
         'Cancel debug'
       );
       config = undefined;
@@ -149,9 +164,9 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
     const targets = folder ? await (async () => {
       const resourceType = resource ? { cwd: resource.uri.fsPath } : {};
       return project === 'stack' ?
-        await getStackIdeTargets(resourceType) :
+        await this.getStackIdeTargets(resourceType) :
         ['cabal', 'cabal-new', 'cabal-v2'].includes(project) ?
-        await getCabalTargets('configure', resourceType) :
+        await this.getCabalTargets('configure', resourceType) :
         [];
     })() :
     [resource.uri.fsPath];
@@ -187,13 +202,13 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
     );
     const items = functions
       .map(fun => fun.match(/^(\S+)\s+::\s+(.+)/m))
-      .filter(match => match)
-      .map(match => ({ label: match[1], description: match[2] }))
+      .filter(match => match && !match[2].match(/->/))
+      .map(match => ({ label: match[1], description: `:: ${match[2]}` }))
       .sort((l, r) => l.label === 'main' || l.description === 'IO ()' ? -1 : l.label.localeCompare(r.label));
     if (!items.length) {
       throw new Error("Could not find any function to debug");
     }
-    const customLabel = 'λ>';
+    const customLabel = 'λ⋙';
     const custom = {
       label: customLabel,
       description: "Custom expression",
@@ -205,5 +220,48 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       item.label = expression;
     }
     return item ? item.label : null;
+  }
+
+  private async getStackIdeTargets(cwdOption: { cwd?: string }) {
+    const result = await new Promise<string>((resolve, reject) => {
+      child_process.exec(
+        `stack ide targets`,
+        cwdOption,
+        (err, _, stderr) => {
+          if (err) {
+            reject('Command stack ide targets failed:\n' + stderr);
+          }
+          else {
+            resolve(stderr);
+          }
+        }
+      );
+    });
+    return result.match(/^[^\s]+:[^\s]+$/gm);
+  }
+
+  private async getCabalTargets(configure: string, cwdOption: { cwd?: string }) {
+    const result = await new Promise<string>((resolve, reject) => {
+      child_process.exec(
+        `cabal ${configure} --dry-run`,
+        cwdOption,
+        (err, stdout, stderr) => {
+          if (err) {
+            reject('Command "cabal new-configure" failed:\n' + stderr);
+          }
+          else {
+            resolve(stdout);
+          }
+        }
+      );
+    });
+    const targets = [];
+    for (let match, pattern = /^\s+-\s+(\S+)-.+?\((.+?)\)/gm; match = pattern.exec(result);) {
+      const [, module, type] = match;
+      targets.push(
+        type.includes(':') ? type : module
+      );
+    }
+    return targets;
   }
 }

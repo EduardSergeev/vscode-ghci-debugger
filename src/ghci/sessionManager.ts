@@ -1,10 +1,10 @@
 import { Disposable } from "vscode";
 import Session from "./session";
 import { Resource, asWorkspaceFolder } from "./resource";
-import { computeFileType, getWorkspaceType, ConfiguredProject } from "./project";
-import { equal } from "./utils";
+import { ConfiguredProject, getWorkspaceType, computeFileType } from "./project";
 import StatusBar from "../statusBar";
 import Output from "../output";
+
 
 export default class SessionManager implements Disposable {
   private disposables: Disposable[] = [];
@@ -26,7 +26,8 @@ export default class SessionManager implements Disposable {
       this.resource !== resource ||
       this.projectType !== projectType ||
       this.targets !== targets ||
-      !equal(this.ghciOptions, ghciOptions)) {
+      !this.ghciOptions.every(ghciOptions.includes) ||
+      !ghciOptions.every(this.ghciOptions.includes)) {
         // Session does not exist or old session is not compatible with the new request
         this.dispose();
         this.resource = resource;
