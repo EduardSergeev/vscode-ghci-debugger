@@ -332,30 +332,33 @@ export default class Debug extends DebugSession implements Disposable {
   }
 
   protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
-    if (this.stoppedAt) {
-      const variable = this.variables.find(variable =>
-        variable.name === args.expression);
-      if (variable) {
+    const editor = vscode.window.activeTextEditor;
+    const text = editor.document.getText(editor.selection);
+    const expression = text.includes(args.expression) ? text : args.expression;
+
+    const variable = this.variables.find(variable => variable.name === expression);
+    if (variable) {
+      response.body = {
+        result: variable.value,
+        variablesReference: 0
+      };
+    } else {
+      let output = await this.session.ghci.sendCommand(
+        expression
+      );
+      if (output[0].length) {
+        const value = output[0];
+        output = await this.session.ghci.sendCommand(
+          `:t ${expression}`
+        );
+        const match = output[0].match(/::\s+(.*)/);
+        const type = match ? match[1] : null;
         response.body = {
-          result: variable.value,
+          result: value,
+          type: type, 
           variablesReference: 0
         };
-      } else {
-        const output = await this.session.ghci.sendCommand(
-          args.expression
-        );
-        if (output[0].length) {
-          const match = output[0].match(/\[.+\]\s+(.+)/);
-          if (match) {
-            response.body = {
-              result: match[1],
-              variablesReference: 0
-            };
-          }
-        }
       }
-    } else {
-      this.session.ghci.sendData(args.expression + '\n');
     }
     this.sendResponse(response);
   }
