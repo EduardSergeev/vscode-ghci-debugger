@@ -3,7 +3,9 @@ import Debug from "./debug";
 
 
 export default class DebugFactory implements DebugAdapterDescriptorFactory {
-  constructor(private createDebug: () => Debug) {
+  constructor(
+    private createDebug: () => Debug
+  ) {
   }
 
   createDebugAdapterDescriptor(_session: DebugSession): ProviderResult<DebugAdapterDescriptor> {

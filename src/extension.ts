@@ -1,13 +1,13 @@
 import * as vscode from 'vscode';
 import { ExtensionContext, StatusBarAlignment } from 'vscode';
-import Console from './console';
-import Output from './output';
-import StatusBar from './statusBar';
 import SessionManager from './ghci/sessionManager';
-import OutputLinkProvider from './outputLinkProvider';
 import DebugFactory from './debugger/debugFactory';
 import Debug from './debugger/debug';
 import ConfigurationProvider from './debugger/configurationProvider';
+import Console from './console';
+import Output from './output';
+import OutputLinkProvider from './outputLinkProvider';
+import StatusBar from './statusBar';
 
 
 export function activate(context: ExtensionContext) {
