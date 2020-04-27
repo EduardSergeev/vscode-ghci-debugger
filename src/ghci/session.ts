@@ -63,10 +63,10 @@ export default class Session implements vscode.Disposable {
       } else if (wst === 'cabal') {
         return `cabal repl${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
       }
-      else if (wst === 'cabal new') {
+      else if (wst === 'cabal-new') {
         return `cabal new-repl ${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
       }
-      else if (wst === 'cabal v2') {
+      else if (wst === 'cabal-v2') {
         return `cabal v2-repl ${ghciParams(' --ghc-options "', '"')} ${this.targets}`;
       }
       else if (wst === 'bare-stack') {

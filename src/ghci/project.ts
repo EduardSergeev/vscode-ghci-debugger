@@ -4,7 +4,7 @@ import * as child_process from 'child_process';
 import { Resource, asWorkspaceFolder } from './resource';
 
 
-export type Project = 'cabal' | 'cabal new' | 'cabal v2' | 'stack' | 'bare-stack' | 'bare';
+export type Project = 'cabal' | 'cabal-new' | 'cabal-v2' | 'stack' | 'bare-stack' | 'bare';
 
 export type ConfiguredProject = Project | undefined;
 
@@ -13,7 +13,7 @@ export async function getWorkspaceType(configuredProjectType: ConfiguredProject,
   return (
     !configuredProjectType ? configuredProjectType :
     (await find(folder, 'stack.yaml')).length ? 'stack' :
-    (await find(folder, '*.cabal')).length ? 'cabal new' :
+    (await find(folder, '*.cabal')).length ? 'cabal-new' :
     await hasStack(folder.uri.fsPath) ? 'bare-stack' :
     'bare'
   );
@@ -28,7 +28,7 @@ export async function getProjectConfigurations(resource: Resource) {
     }
 
     if((await find(folder, '*.cabal')).length) {
-      configurations.push('cabal new');
+      configurations.push('cabal-new');
     }
 
     if(await hasStack(folder.uri.fsPath)) {

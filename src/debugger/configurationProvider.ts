@@ -150,7 +150,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       const resourceType = resource ? { cwd: resource.uri.fsPath } : {};
       return project === 'stack' ?
         await getStackIdeTargets(resourceType) :
-        ['cabal', 'cabal new', 'cabal v2'].includes(project) ?
+        ['cabal', 'cabal-new', 'cabal-v2'].includes(project) ?
         await getCabalTargets('configure', resourceType) :
         [];
     })() :

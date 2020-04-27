@@ -55,7 +55,7 @@
             "properties": {
               "project": {
                 "type": "string",
-                "description": "Project's type to debug. Supported: `cabal`, `cabal new`, `cabal v2`, `stack`, `bare-stack`, `bare`",
+                "description": "Project's type to debug. Supported: `cabal`, `cabal-new`, `cabal-v2`, `stack`, `bare-stack`, `bare`",
                 "default": null
               },
               "targets": {
