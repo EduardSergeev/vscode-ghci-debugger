@@ -85,19 +85,15 @@
     ],
     "languages": [
       {
-        "id": "ghci",
-        "aliases": [
-          "ghci"
-        ],
-        "firstLine": "^‌Starting GHCi with.*",
-        "configuration": "./ghci.configuration.json"
+        "id": "ghci-log",
+        "firstLine": "^‌Starting GHCi with.*"
       }
     ],
     "grammars": [
       {
-        "language": "ghci",
-        "scopeName": "code.ghci",
-        "path": "./ghci.tmLanguage"
+        "language": "ghci-log",
+        "scopeName": "code.ghci-log",
+        "path": "./ghci-log.tmLanguage"
       }
     ]
   },

@@ -3,10 +3,10 @@
 <plist version="1.0">
   <dict>
     <key>scopeName</key>
-    <string>code.ghci</string>
+    <string>code.ghci-log</string>
     <key>fileTypes</key>
     <array>
-      <string>ghci</string>
+      <string>ghci-log</string>
     </array>
     <key>name</key>
     <string>GHCi log file</string>

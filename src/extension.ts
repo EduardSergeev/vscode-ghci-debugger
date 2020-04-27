@@ -16,7 +16,7 @@ export function activate(context: ExtensionContext) {
   const statusBatTooltip = 'GHCi Debugger\nClick to open log output';
   const statusBarBusyPrefix = '$(debug-alt) ';
   const consoleTitle = 'GHCi Debugger Console';
-  const ghciLogLanguageId = 'ghci';
+  const ghciLogLanguageId = 'ghci-log';
   const openOutputCommandId = 'ghci-debugger.openOutput';
 
   // Until [it is directly supported](https://github.com/Microsoft/vscode/issues/11005)
