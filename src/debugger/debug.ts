@@ -351,13 +351,14 @@ export default class Debug extends DebugSession implements Disposable {
       let output = await this.session.ghci.sendCommand(
         expression
       );
-      if (output[0].length) {
-        const value = output[0];
-        output = await this.session.ghci.sendCommand(
-          `:t ${expression}`
-        );
-        const match = output[0].match(/::\s+(.*)/);
-        const type = match ? match[1] : null;
+      let value = output[0];
+      output = await this.session.ghci.sendCommand(
+        `:t ${expression}`
+      );
+      const match = output[0].match(/(.*)\s+::\s+(.*)/);
+      const type = match && match[2];
+      value = value || match && match[0];
+      if(type || value) {
         response.body = {
           result: value,
           type: type, 
