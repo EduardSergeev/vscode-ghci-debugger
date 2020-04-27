@@ -41,6 +41,9 @@
     "breakpoints": [
       {
         "language": "haskell"
+      },
+      {
+        "language": "literate haskell"
       }
     ],
     "debuggers": [
