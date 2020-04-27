@@ -4,7 +4,7 @@ import { DebugConfigurationProvider, WorkspaceFolder, CancellationToken } from "
 import Session from '../ghci/session';
 import SessionManager from '../ghci/sessionManager';
 import { Resource, asWorkspaceFolder } from '../ghci/resource';
-import { ConfiguredProject, getProjectConfigurations, Project } from '../ghci/project';
+import getProjectConfigurations, { Project } from '../ghci/project';
 import LaunchRequestArguments from './launchRequestArguments';
 import Output from '../output';
 
@@ -159,7 +159,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       types[0];
   }
 
-  private async getTargets(project: ConfiguredProject, resource: Resource): Promise<string> {
+  private async getTargets(project: Project, resource: Resource): Promise<string> {
     const folder = asWorkspaceFolder(resource);
     const targets = folder ? await (async () => {
       const resourceType = resource ? { cwd: resource.uri.fsPath } : {};
