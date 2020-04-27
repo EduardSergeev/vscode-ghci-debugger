@@ -205,21 +205,23 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       .filter(match => match && !match[2].match(/->/))
       .map(match => ({ label: match[1], description: `:: ${match[2]}` }))
       .sort((l, r) => l.label === 'main' || l.description === 'IO ()' ? -1 : l.label.localeCompare(r.label));
-    if (!items.length) {
-      throw new Error("Could not find any function to debug");
-    }
     const customLabel = 'λ⋙';
     const custom = {
       label: customLabel,
       description: "Custom expression",
       detail: 'Arbitrary Haskell expression to debug'
     };
-    const item = await vscode.window.showQuickPick(items.concat([custom]), { placeHolder: "Select function to debug" });
-    if (item && item.label === customLabel) { 
-      const expression = await vscode.window.showInputBox({ value: 'putStrLn "Hello, world!"', prompt: 'Enter Haskell expression to debug', ignoreFocusOut: true });
-      item.label = expression;
-    }
-    return item ? item.label : null;
+    const item = await vscode.window.showQuickPick(
+      items.concat([custom]),
+      { placeHolder: "Select function to debug" }
+    );
+    const expression = item?.label === customLabel ? 
+      await vscode.window.showInputBox({
+        value: 'putStrLn "Hello, world!"',
+        prompt: 'Enter Haskell expression to debug',
+        ignoreFocusOut: true
+      }) : null;
+    return expression || item?.label;
   }
 
   private async getStackIdeTargets(cwdOption: { cwd?: string }) {
