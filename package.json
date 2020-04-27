@@ -109,7 +109,6 @@
     "test": "npm run compile && node ./node_modules/vscode/bin/test"
   },
   "dependencies": {
-    "await-notify": "1.0.1",
     "vscode-debugadapter": "1.40.0"
   },
   "devDependencies": {

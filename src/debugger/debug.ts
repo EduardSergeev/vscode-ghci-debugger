@@ -9,13 +9,13 @@ import Configuration from '../configuration';
 import Console from '../console';
 import StatusBar from '../statusBar';
 import LaunchRequestArguments from './launchRequestArguments';
-const { Subject } = require('await-notify');
 
 
 export default class Debug extends DebugSession implements Disposable {
   private rootDir: string;
   private session: Session;
-  private configurationDone = new Subject();
+  private configurationDone: Promise<void>;
+  private signalConfigurationDone: () => void;
   private serviceMessage: Boolean;
   private subscriptions = [];
 
@@ -61,6 +61,10 @@ export default class Debug extends DebugSession implements Disposable {
 
     response.body.supportsTerminateRequest = true;
 
+    this.configurationDone = new Promise<void>((resolve, _) => {
+      this.signalConfigurationDone = resolve;
+    });
+
     this.sendResponse(response);
   }
 
@@ -72,7 +76,7 @@ export default class Debug extends DebugSession implements Disposable {
     super.configurationDoneRequest(response, args);
 
     // notify the launchRequest that configuration has finished
-    this.configurationDone.notify();
+    this.signalConfigurationDone();
   }
 
   protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
@@ -102,8 +106,9 @@ export default class Debug extends DebugSession implements Disposable {
     );
 
     this.sendEvent(new InitializedEvent());
+
     // wait until configuration has finished (and configurationDoneRequest has been called)
-    await this.configurationDone.wait(1000);
+    await this.configurationDone;
 
     vscode.commands.executeCommand('workbench.action.terminal.clear');
 
