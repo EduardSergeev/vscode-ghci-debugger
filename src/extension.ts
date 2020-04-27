@@ -10,12 +10,13 @@ import OutputLinkProvider from './outputLinkProvider';
 import StatusBar from './statusBar';
 
 
+export const ConsoleTitle = 'GHCi Debugger Console';
+
 export function activate(context: ExtensionContext) {
   const outputChannelTitle = 'GHCi Debugger';
   const ghciLogMarker = '‌Starting GHCi with';
   const statusBatTooltip = 'GHCi Debugger\nClick to open log output';
   const statusBarBusyPrefix = '$(debug-alt) ';
-  const consoleTitle = 'GHCi Debugger Console';
   const ghciLogLanguageId = 'ghci-log';
   const openOutputCommandId = 'ghci-debugger.openOutput';
 
@@ -46,7 +47,7 @@ export function activate(context: ExtensionContext) {
 
   const console = new Console();
   const terminal = vscode.window.createTerminal({
-    name: consoleTitle,
+    name: ConsoleTitle,
     pty: console
   });
 
@@ -78,4 +79,6 @@ export function activate(context: ExtensionContext) {
     linkProvider,
     configurationProvider,
     descriptorFactory);
+
+  return console;
 }
