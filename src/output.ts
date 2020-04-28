@@ -10,7 +10,7 @@ export default class Output implements Disposable {
   }
 
   public ghciCommand(text: string): void {
-    this.outputChannel.appendLine(`‌λ ${text}`);
+    this.outputChannel.appendLine(`⋙ ${text}`);
   }
 
   public ghciError(text: string): void {

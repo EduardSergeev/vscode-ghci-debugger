@@ -7,9 +7,7 @@
   "patterns": [
     {
       "match": "^⋙ .*$",
-      "captures": {
-        "0": { "name": "markup.inline.raw" }
-      }
+      "name": "markup.inline.raw"
     },
     {
       "match": "^‌‌.*$",
