@@ -7,7 +7,7 @@ export function run(): Promise<void> {
 	// Create the mocha test
 	const mocha = new Mocha({
 		ui: 'tdd',
-		timeout: 10000
+		timeout: 300000
 	});
 	mocha.useColors(true);
 

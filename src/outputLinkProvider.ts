@@ -6,7 +6,7 @@ import { DocumentLinkProvider, TextDocument, CancellationToken, ProviderResult, 
 export default class OutputLinkProvider implements DocumentLinkProvider {
   provideDocumentLinks(document: TextDocument, token: CancellationToken): ProviderResult<DocumentLink[]> {
     const pattern = /([\w\/]+\.\w+)(?::\(?(\d+)[,:](\d+)\)?(?:-(?:\d+|\(\d+,\d+\)))?)?/g;
-    const rootPath = vscode.workspace.workspaceFolders[0]?.uri.fsPath;
+    const rootPath = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath;
     const text = document.getText();
     const links = [];
     for (let match; match = pattern.exec(text);) {

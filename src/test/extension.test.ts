@@ -3,6 +3,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import { Position } from 'vscode';
 import Console from '../console';
+import { OpenOutputCommandId, GhciLogMarker } from '../extension';
 
 
 suite("All", function () {
@@ -33,34 +34,51 @@ suite("All", function () {
     });
     assert.ok(started);
 
-    const console = vscode.extensions.getExtension<Console>('edka.ghci-debugger').exports;
-    assert.ok(console);
+    const terminal = vscode.extensions.getExtension<Console>('edka.ghci-debugger').exports;
+    assert.ok(terminal);
 
     const output = new Promise<string>((resolve, _) => {
       let output = '';
-      console.onDidWrite(data => {
-          output = output + data;
-          if(output.endsWith('\n\r')) {
-            resolve(data);
-          }
-        },
+      terminal.onDidWrite(data => {
+        output = output + data;
+        if (output.endsWith('\n\r')) {
+          resolve(data);
+        }
+      },
         this
       );
     });
 
     await new Promise<void>((resolve, _) => {
-        vscode.window.onDidChangeTextEditorSelection(_ => {
-            resolve();
-          }, this
-        );
-      }
+      vscode.window.onDidChangeTextEditorSelection(_ => {
+        resolve();
+      }, this
+      );
+    }
     );
 
     const editor = vscode.window.activeTextEditor;
     assert.deepEqual(editor.selection.start, breakPoint);
-    
+
     await vscode.commands.executeCommand('workbench.action.debug.continue');
 
-    assert.equal(await output, 'Hello, tester!\n\r');
+    assert.equal(await output, 'Hello, tester!\n\r');      
+  });
+
+
+  teardown(async () => {
+    if(this.ctx.currentTest.isFailed()) {
+      vscode.window.onDidChangeVisibleTextEditors(editors => {
+        for (const editor of editors) {
+          if (editor.document.fileName.startsWith('extension-output')) {
+            const firstLine = editor.document.lineAt(0).text;
+            if (!firstLine || firstLine.startsWith(GhciLogMarker)) {
+              console.log(`\nGHCi Output:\n\n${editor.document.getText()}`);
+            }
+          }
+        }
+      }, this);
+      await vscode.commands.executeCommand(OpenOutputCommandId);
+    }
   });
 });

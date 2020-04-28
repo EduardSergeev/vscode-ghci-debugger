@@ -11,6 +11,8 @@ import StatusBar from './statusBar';
 
 
 export const ConsoleTitle = 'GHCi Debugger Console';
+export const OpenOutputCommandId = 'ghci-debugger.openOutput';
+export const GhciLogMarker = '‌Starting GHCi with';
 
 export function activate(context: ExtensionContext) {
   const outputChannelTitle = 'GHCi Debugger';
@@ -18,7 +20,6 @@ export function activate(context: ExtensionContext) {
   const statusBatTooltip = 'GHCi Debugger\nClick to open log output';
   const statusBarBusyPrefix = '$(debug-alt) ';
   const ghciLogLanguageId = 'ghci-log';
-  const openOutputCommandId = 'ghci-debugger.openOutput';
 
   // Until [it is directly supported](https://github.com/Microsoft/vscode/issues/11005)
   // we have to use this hacky approach to set `ghci` language to our `OutputChannel`
@@ -40,7 +41,7 @@ export function activate(context: ExtensionContext) {
 
   const statusBarItem = vscode.window.createStatusBarItem(StatusBarAlignment.Left);
   statusBarItem.tooltip = statusBatTooltip;
-  statusBarItem.command = openOutputCommandId;
+  statusBarItem.command = OpenOutputCommandId;
   const statusBar = new StatusBar(statusBarItem, statusBarBusyPrefix);
 
   const sessionManager = new SessionManager(output, statusBar);
@@ -57,7 +58,7 @@ export function activate(context: ExtensionContext) {
   );
 
   const openOutputCommand = vscode.commands.registerCommand(
-    openOutputCommandId,
+    OpenOutputCommandId,
     () => output.show()
   );
 

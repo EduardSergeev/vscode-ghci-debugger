@@ -98,7 +98,13 @@
         "scopeName": "code.ghci-log",
         "path": "./syntax/ghci-log.tmLanguage.json"
       }
-    ]
+    ],
+    "commands": [
+    {
+        "command": "ghci-debugger.openOutput",
+        "title": "Open GHCi Debugger log output",
+        "category": "GHCi Debugger"
+    }]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
