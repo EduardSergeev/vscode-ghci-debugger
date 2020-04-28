@@ -506,7 +506,7 @@ export default class Debug extends DebugSession implements Disposable {
 
   private didOutput(data: string) {
     const start = data.indexOf('Stopped in ');
-    const end = data.indexOf('λ\n');
+    const end = data.search(/λ\r?\n/);
     if (start >= 0) {
       this.serviceMessage = true;
       data = data.slice(0, start);
@@ -520,7 +520,7 @@ export default class Debug extends DebugSession implements Disposable {
       }
       this.serviceMessage = false;
     } else if(!this.serviceMessage) {
-      this.consoleTerminal.sendData(data.replace(/λ\n/m, ''));
+      this.consoleTerminal.sendData(data.replace(/λ\r?\n/m, ''));
     }
   }
 

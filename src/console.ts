@@ -25,7 +25,7 @@ export default class Console implements Pseudoterminal {
   public handleInput?(data: string): void {
     if (!['[B', '[A'].includes(data)) {
       if (data === '\r') {
-        data = '\n\r';
+        data = '\r\n';
       }
       this.readEmitter.fire(data);
       this.writeEmitter.fire(data);
@@ -33,7 +33,7 @@ export default class Console implements Pseudoterminal {
   }
   
   public sendData(data: string): void {
-    const fixed = data.replace(/\n/g, '\n\r');
+    const fixed = data.replace(/(?<!\r)\n/g, '\r\n');
     this.writeEmitter.fire(fixed);
   }
 }

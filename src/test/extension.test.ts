@@ -41,7 +41,7 @@ suite("All", function () {
       let output = '';
       terminal.onDidWrite(data => {
           output = output + data;
-          if (output.endsWith('\n\r')) {
+          if (output.endsWith('\r\n')) {
             resolve(output);
           }
         },
@@ -63,7 +63,7 @@ suite("All", function () {
 
     await vscode.commands.executeCommand('workbench.action.debug.continue');
 
-    assert.equal(await output, 'Hello, tester!\n\r');      
+    assert.equal(await output, 'Hello, tester!\r\n');      
   });
 
 

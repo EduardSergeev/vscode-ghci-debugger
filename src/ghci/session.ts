@@ -105,7 +105,9 @@ export default class Session implements vscode.Disposable {
       const match = /^([^ ]+)\s+\( (.+), .+ \)$/.exec(line);
       if (match) {
         const [, module, path] = match;
-        const fullPath = normalizePath(vscode.workspace.workspaceFolders[0].uri.fsPath, path);
+        // TODO: Hack! Fix me
+        const basePath = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath;
+        const fullPath = normalizePath(basePath, path);
         this.moduleMap.set(fullPath.toLowerCase(), module);
       }
     }
