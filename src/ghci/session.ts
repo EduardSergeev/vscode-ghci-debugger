@@ -83,7 +83,7 @@ export default class Session implements vscode.Disposable {
       `(Under ${
       this.cwdOption.cwd === undefined
         ? 'default cwd'
-        : `cwd ${ this.cwdOption.cwd }` })`
+        : `cwd ${this.cwdOption.cwd}` })`
     );
 
     return this.ghci.start(cmd);

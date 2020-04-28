@@ -58,8 +58,8 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
 	 * e.g. add all missing attributes to the debug configuration.
 	 */
   async resolveDebugConfiguration(folder: WorkspaceFolder | undefined, config: LaunchRequestArguments, token?: CancellationToken): Promise<LaunchRequestArguments> {
-    config.type = config.type || ConfigurationProvider.DebuggerType;
-    config.request = config.request || ConfigurationProvider.DebuggerRequest;
+    config.type = ConfigurationProvider.DebuggerType;
+    config.request = ConfigurationProvider.DebuggerRequest;
 
     const resource = folder || vscode.window.activeTextEditor.document;
 
