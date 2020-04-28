@@ -1,25 +1,28 @@
 import * as vscode from 'vscode';
+import * as child_process from 'child_process';
 import { DebugConfigurationProvider, WorkspaceFolder, CancellationToken } from "vscode";
-import { getStackIdeTargets, getCabalTargets } from '../../ghci/utils';
-import Session from '../../ghci/session';
-import SessionManager from '../../ghci/sessionManager';
-import { Resource, asWorkspaceFolder } from '../../ghci/resource';
-import { ConfiguredProject, getProjectConfigurations, Project } from '../../ghci/project';
+import Session from '../ghci/session';
+import SessionManager from '../ghci/sessionManager';
+import { Resource, asWorkspaceFolder } from '../ghci/resource';
+import getProjectConfigurations, { Project } from '../ghci/project';
 import LaunchRequestArguments from './launchRequestArguments';
+import Output from '../output';
+
 
 export default class ConfigurationProvider implements DebugConfigurationProvider {
-  public constructor(private sessionManager: SessionManager) {
+  public static DebuggerType = 'ghci';
+  private static DebuggerRequest = 'launch';
+
+  public constructor(
+    private sessionManager: SessionManager,
+    private output: Output) {
   }
 
   async provideDebugConfigurations?(folder: WorkspaceFolder | undefined, token?: CancellationToken): Promise<LaunchRequestArguments[]> {
     let config: LaunchRequestArguments = {
-      type: 'ghci',
-      name: 'Launch',
-      request: 'launch',
-      project: null,
-      targets: null,
-      module: null,
-      expression: null,
+      type: ConfigurationProvider.DebuggerType,
+      request: ConfigurationProvider.DebuggerRequest,
+      name: null,
       stopOnEntry: false
     };
 
@@ -35,10 +38,16 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
         );
 
       config.expression = config.module &&
-        await this.getFunction(
+        await this.getExpression(
           await this.sessionManager.getSession(folder, config.project, config.targets),
           config.module
         );
+
+      config.name = [
+        config.project,
+        config.module,
+        config.expression
+      ].filter(x => x).join(' ');
     } catch { }
 
     return [config];
@@ -49,9 +58,8 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
 	 * e.g. add all missing attributes to the debug configuration.
 	 */
   async resolveDebugConfiguration(folder: WorkspaceFolder | undefined, config: LaunchRequestArguments, token?: CancellationToken): Promise<LaunchRequestArguments> {
-    config.type = config.type || 'ghci';
-    config.request = config.request || 'launch';
-    config.name = config.name || 'Launch';
+    config.type = config.type || ConfigurationProvider.DebuggerType;
+    config.request = config.request || ConfigurationProvider.DebuggerRequest;
 
     const resource = folder || vscode.window.activeTextEditor.document;
 
@@ -103,7 +111,7 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
 
       do {
         config.expression = config.expression ||
-          await this.getFunction(
+          await this.getExpression(
             await this.sessionManager.getSession(resource, config.project, config.targets),
             config.module
           );
@@ -118,9 +126,18 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
           }
         }
       } while (!config.expression);
+
+      config.name = config.name || [
+        config.project,
+        config.module,
+        config.expression
+      ].filter(x => x).join(' ');
+
     } catch (error) {
+      const message = `Error starting GHCi:\n${error}`;
+      this.output.error(message);
       await vscode.window.showErrorMessage(
-        `Error starting GHCi:\n${error}`,
+        message,
         'Cancel debug'
       );
       config = undefined;
@@ -134,18 +151,21 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       throw new Error("Could not find any Haskell to debug");
     }
     return types.length > 1 ?
-      await vscode.window.showQuickPick(types, { placeHolder: "Select Haskell project type to debug" }) :
+      await vscode.window.showQuickPick(
+        types,
+        { placeHolder: "Select Haskell project type to debug" }
+      ) :
       types[0];
   }
 
-  private async getTargets(project: ConfiguredProject, resource: Resource): Promise<string> {
+  private async getTargets(project: Project, resource: Resource): Promise<string> {
     const folder = asWorkspaceFolder(resource);
     const targets = folder ? await (async () => {
       const resourceType = resource ? { cwd: resource.uri.fsPath } : {};
       return project === 'stack' ?
-        await getStackIdeTargets(resourceType) :
-        ['cabal', 'cabal new', 'cabal v2'].includes(project) ?
-        await getCabalTargets('configure', resourceType) :
+        await this.getStackIdeTargets(resourceType) :
+        ['cabal', 'cabal-new', 'cabal-v2'].includes(project) ?
+        await this.getCabalTargets('configure', resourceType) :
         [];
     })() :
     [resource.uri.fsPath];
@@ -162,8 +182,6 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
   }
 
   private async getModule(session: Session): Promise<string | undefined> {
-    await session.reload();
-    await session.loading;
     const modules = Array
       .from(session.moduleMap.values())
       .sort((l, r) => l === 'Main' ? -1 : l.localeCompare(r));
@@ -171,33 +189,81 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       throw new Error("Could not find any module to debug");
     }
     return modules.length > 1 ?
-      await vscode.window.showQuickPick(modules, { placeHolder: "Select module to debug" }) :
+      await vscode.window.showQuickPick(
+        modules,
+        { placeHolder: "Select module to debug" }
+      ) :
       modules[0];
   }
 
-  private async getFunction(session: Session, module: string): Promise<string | undefined> {
+  private async getExpression(session: Session, module: string): Promise<string | undefined> {
     const functions = await session.ghci.sendCommand(
       `:browse ${module}`
     );
     const items = functions
       .map(fun => fun.match(/^(\S+)\s+::\s+(.+)/m))
-      .filter(match => match)
-      .map(match => ({ label: match[1], description: match[2] }))
+      .filter(match => match && !match[2].match(/->/))
+      .map(match => ({ label: match[1], description: `:: ${match[2]}` }))
       .sort((l, r) => l.label === 'main' || l.description === 'IO ()' ? -1 : l.label.localeCompare(r.label));
-    if (!items.length) {
-      throw new Error("Could not find any function to debug");
-    }
-    const customLabel = 'λ>';
+    const customLabel = 'λ⋙';
     const custom = {
       label: customLabel,
       description: "Custom expression",
-      detail: 'Type in arbitrary expression to debug'
+      detail: 'Arbitrary Haskell expression to debug'
     };
-    const item = await vscode.window.showQuickPick(items.concat([custom]), { placeHolder: "Select function to debug" });
-    if (item && item.label === customLabel) { 
-      const expression = await vscode.window.showInputBox({ value: 'putStrLn "Hello, world!"', prompt: 'Enter Haskell expression to debug', ignoreFocusOut: true });
-      item.label = expression;
+    const item = await vscode.window.showQuickPick(
+      items.concat([custom]),
+      { placeHolder: "Select function to debug" }
+    );
+    const expression = item?.label === customLabel ? 
+      await vscode.window.showInputBox({
+        value: 'putStrLn "Hello, world!"',
+        prompt: 'Enter Haskell expression to debug',
+        ignoreFocusOut: true
+      }) : null;
+    return expression || item?.label;
+  }
+
+  private async getStackIdeTargets(cwdOption: { cwd?: string }) {
+    const result = await new Promise<string>((resolve, reject) => {
+      child_process.exec(
+        `stack ide targets`,
+        cwdOption,
+        (err, _, stderr) => {
+          if (err) {
+            reject('Command stack ide targets failed:\n' + stderr);
+          }
+          else {
+            resolve(stderr);
+          }
+        }
+      );
+    });
+    return result.match(/^[^\s]+:[^\s]+$/gm);
+  }
+
+  private async getCabalTargets(configure: string, cwdOption: { cwd?: string }) {
+    const result = await new Promise<string>((resolve, reject) => {
+      child_process.exec(
+        `cabal ${configure} --dry-run`,
+        cwdOption,
+        (err, stdout, stderr) => {
+          if (err) {
+            reject('Command "cabal new-configure" failed:\n' + stderr);
+          }
+          else {
+            resolve(stdout);
+          }
+        }
+      );
+    });
+    const targets = [];
+    for (let match, pattern = /^\s+-\s+(\S+)-.+?\((.+?)\)/gm; match = pattern.exec(result);) {
+      const [, module, type] = match;
+      targets.push(
+        type.includes(':') ? type : module
+      );
     }
-    return item ? item.label : null;
+    return targets;
   }
 }

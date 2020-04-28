@@ -2,19 +2,22 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Disposable, Terminal } from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { LoggingDebugSession, StackFrame, InitializedEvent, Logger, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, logger } from "vscode-debugadapter";
+import { StackFrame, InitializedEvent, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, DebugSession } from "vscode-debugadapter";
+import Session from '../ghci/session';
+import SessionManager from '../ghci/sessionManager';
+import Configuration from '../configuration';
+import Console from '../console';
+import StatusBar from '../statusBar';
 import LaunchRequestArguments from './launchRequestArguments';
-import Session from '../../ghci/session';
-import SessionManager from '../../ghci/sessionManager';
-import Configuration from './configuration';
-import ConsoleTerminal from './console';
-const { Subject } = require('await-notify');
 
 
-export default class DebugSession extends LoggingDebugSession implements vscode.Disposable {
+export default class Debug extends DebugSession implements Disposable {
+  private static ThreadId: number = 1;
+
   private rootDir: string;
   private session: Session;
-  private configurationDone = new Subject();
+  private configurationDone: Promise<void>;
+  private signalConfigurationDone: () => void;
   private serviceMessage: Boolean;
   private subscriptions = [];
 
@@ -26,11 +29,12 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
 
   public constructor(
     private sessionManager: SessionManager,
-    private consoleTerminal: ConsoleTerminal,
-    private terminal: Terminal) {
-    super("ghci-debug.txt");
-    this.rootDir = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath || '.';
-    this.consoleTerminal.onDidInput(this.didInput, this, this.subscriptions);
+    private consoleTerminal: Console,
+    private terminal: Terminal,
+    private status: StatusBar) {
+      super();
+      this.rootDir = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath || '.';
+      this.consoleTerminal.onDidInput(this.didInput, this, this.subscriptions);
   }
 
 	/**
@@ -59,6 +63,10 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
 
     response.body.supportsTerminateRequest = true;
 
+    this.configurationDone = new Promise<void>((resolve, _) => {
+      this.signalConfigurationDone = resolve;
+    });
+
     this.sendResponse(response);
   }
 
@@ -70,29 +78,28 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
     super.configurationDoneRequest(response, args);
 
     // notify the launchRequest that configuration has finished
-    this.configurationDone.notify();
+    this.signalConfigurationDone();
   }
 
   protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
-    // make sure to 'Stop' the buffered logging if 'trace' is not set
-    logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
-
     const resource = vscode.workspace.workspaceFolders ?
       vscode.workspace.workspaceFolders[0] :
       vscode.window.activeTextEditor.document;
 
     this.session = await this.sessionManager.getSession(resource, args.project, args.targets);
-    await this.session.reload();
-    await this.session.loading;
     this.session.ghci.data(this.didOutput, this, this.subscriptions);
 
     if(this.rootDir !== '.') {
-      await this.session.ghci.sendCommand(
-        `:l ${args.module}`
+      await this.status.withStatus(
+        this.session.ghci.sendCommand(
+          `:l ${args.module}`
+        ), 'Loading project...'
       );
     } else {
-      await this.session.ghci.sendCommand(
-        `:l ${vscode.window.activeTextEditor.document.uri.fsPath}`
+      await this.status.withStatus(
+        this.session.ghci.sendCommand(
+          `:l ${vscode.window.activeTextEditor.document.uri.fsPath}`
+        ), 'Loading file...'
       );
     }
 
@@ -101,8 +108,9 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
     );
 
     this.sendEvent(new InitializedEvent());
+
     // wait until configuration has finished (and configurationDoneRequest has been called)
-    await this.configurationDone.wait(1000);
+    await this.configurationDone;
 
     vscode.commands.executeCommand('workbench.action.terminal.clear');
 
@@ -134,18 +142,15 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
         const [, id, line, column, endLineColumn, endColumn] =
           response[0].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)(?:-(\d+))?/) ||
           response[0].match(/Breakpoint\s(\d+).+?:\((\d+),(\d+)\)-\((\d+),(\d+)\)/);
-        const breakpoint = <DebugProtocol.Breakpoint>new Breakpoint(
-          true,
-          Number(line),
-          Number(column),
-          new Source(source.name, source.path));
-        breakpoint.id = Number(id);
-        if(endColumn) {
-          breakpoint.endLine = Number(endLineColumn);
-        } else if (endLineColumn) {
-          breakpoint.endLine = Number(line);
-          breakpoint.endColumn = Number(endLineColumn) + 1;
-        }
+        const breakpoint = {
+          id: Number(id),
+          verified: true,
+          line: Number(line),
+          column: Number(column),
+          source: new Source(source.name, source.path),
+          endLine: endColumn && Number(endLineColumn),
+          endColumn: endColumn && Number(endColumn) || endLineColumn && Number(endLineColumn)
+        };
         return breakpoint;
       })
     );
@@ -183,7 +188,7 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
   protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
     response.body = {
       threads: [
-        new Thread(1, "default")
+        new Thread(Debug.ThreadId, "default")
       ]
     };
     this.sendResponse(response);
@@ -270,7 +275,6 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
             type: type,
             value: value,
             evaluateName: name,
-            
             presentationHint: {
               kind: 'data',
               attributes: ['readOnly']
@@ -331,30 +335,34 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
   }
 
   protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
-    if (this.stoppedAt) {
-      const variable = this.variables.find(variable =>
-        variable.name === args.expression);
-      if (variable) {
+    const editor = vscode.window.activeTextEditor;
+    const text = editor.document.getText(editor.selection);
+    const expression = text.includes(args.expression) ? text : args.expression;
+
+    const variable = this.variables.find(variable => variable.name === expression);
+    if (variable) {
+      response.body = {
+        result: variable.value,
+        variablesReference: 0
+      };
+    } else {
+      let output = await this.session.ghci.sendCommand(
+        expression
+      );
+      let value = output[0];
+      output = await this.session.ghci.sendCommand(
+        `:t ${expression}`
+      );
+      const match = output[0].match(/(.*)\s+::\s+(.*)/);
+      const type = match && match[2];
+      value = value || match && match[0];
+      if(type || value) {
         response.body = {
-          result: variable.value,
+          result: value,
+          type: type, 
           variablesReference: 0
         };
-      } else {
-        const output = await this.session.ghci.sendCommand(
-          args.expression
-        );
-        if (output[ 0 ].length) {
-          const match = output[ 0 ].match(/\[.+\]\s+(.+)/);
-          if (match) {
-            response.body = {
-              result: match[ 1 ],
-              variablesReference: 0
-            };
-          }
-        }
       }
-    } else {
-      this.session.ghci.sendData(args.expression + '\n');
     }
     this.sendResponse(response);
   }
@@ -396,20 +404,16 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
     const [, id, line, column, endLineColumn, endColumn] =
       output[0].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)(?:-(\d+))?/) ||
       output[0].match(/Breakpoint\s(\d+).+?:\((\d+),(\d+)\)-\((\d+),(\d+)\)/);
-    let target = {
+    const target = {
       id: Number(id),
       label: id,
+      verified: true,
       line: Number(line),
       column: Number(column),
-      endLine: null,
-      endColumn: null
+      source: new Source(source.name, source.path),
+      endLine: endColumn && Number(endLineColumn),
+      endColumn: endColumn && Number(endColumn) || endLineColumn && Number(endLineColumn)
     };
-    if(endColumn) {
-      target.endLine = Number(endLineColumn);
-    } else if (endLineColumn) {
-      target.endLine = Number(line);
-      target.endColumn = Number(endLineColumn) + 1;
-    }
     response.body = {
       targets: [target]
     };
@@ -417,10 +421,13 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
   }
 
 
-  protected terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request): void {
-    this.session.ghci.sendCommand(
+  protected async terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request): Promise<void> {
+    await this.session.ghci.sendCommand(
       ':abandon'
-    ).then(response => this.didStop(response));
+    );
+    // await this.session.ghci.sendCommand(
+    //   ':delete *'
+    // );
     this.sendResponse(response);
   }
 
@@ -437,29 +444,28 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):(\d+):(\d+)/m) ||
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/m);
     if (match) {
-      const [ , out, name, modPath, line, column ] = match;
+      const [, _output, name, modPath, line, column, endLineColumn, endColumn] = match;
       const fullPath = path.isAbsolute(modPath) ? modPath : path.join(this.rootDir, modPath);
       const module = this.session.getModuleName(fullPath);
-      this.stoppedAt =
-        new StackFrame(
-          Number(0),
-          name.split('.').slice(-1)[0],
-          new Source(path.basename(modPath), fullPath),
-          Number(line),
-          Number(column)
-        );
-
+      this.stoppedAt = {
+        id: Number(0),
+        name: name.split('.').slice(-1)[0],
+        source: new Source(path.basename(modPath), fullPath),
+        line: Number(line),
+        column: Number(column),
+        endLine: endColumn && Number(endLineColumn),
+        endColumn: endColumn && Number(endColumn) || endLineColumn && Number(endLineColumn)
+      };
       if (this.breakpoints.find(breakpoint =>
         breakpoint.source.name === module &&
         breakpoint.line === Number(line) &&
         breakpoint.column === Number(column))) {
-          this.sendEvent(new StoppedEvent('breakpoint', 1));
+          this.sendEvent(new StoppedEvent('breakpoint', Debug.ThreadId));
       } else {
-        this.sendEvent(new StoppedEvent('step', 1));
+        this.sendEvent(new StoppedEvent('step', Debug.ThreadId));
       }
     } else if (match = output.match(/(?:\[.*\] )?([\s\S]*)(^\*\*\* Exception: [\s\S]*)/m)) {
-      const [, out, exception] = match;
-      this.consoleTerminal.sendData(out);
+      const [, _output, exception] = match;
       this.consoleTerminal.sendData(exception);
       this.sendEvent(new TerminatedEvent());
     } else if (match = output.match(/(?:\[.*\] )?([\s\S]*)Stopped in <exception thrown>/m)) {
@@ -479,10 +485,9 @@ export default class DebugSession extends LoggingDebugSession implements vscode.
         lines: lines.map(line => line.replace(/\[<unknown>\]\s+/g, '')),
         type: exceptionType
       };
-      this.sendEvent(new StoppedEvent('exception', 1));
+      this.sendEvent(new StoppedEvent('exception', Debug.ThreadId));
     } else {
-      const [, out] = output.match(/(?:\[.*\] )?([\s\S]*)/);
-      this.consoleTerminal.sendData(out);
+      // const [, _output] = output.match(/(?:\[.*\] )?([\s\S]*)/);
       this.sendEvent(new TerminatedEvent());
     }
   }

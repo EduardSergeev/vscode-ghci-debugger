@@ -1,0 +1,36 @@
+{
+  "scopeName": "code.ghci-log",
+  "fileTypes": [
+    "ghci-log"
+  ],
+  "name": "GHCi log file",
+  "patterns": [
+    {
+      "match": "^⋙ .*$",
+      "captures": {
+        "0": { "name": "markup.inline.raw" }
+      }
+    },
+    {
+      "match": "^‌‌.*$",
+      "name": "entity.name.tag.css"
+    },
+    {
+      "match": "^‌.*$",
+      "name": "comment"
+    },
+    {
+      "match": "λ",
+      "name": "keyword"
+    },
+    {
+      "match": "(?:https|http|file):\\/\\/\\S+",
+      "name": "storage"
+    },
+    {
+      "match": "([\\w\\/]+\\.hs)(?:[:-](?:\\d+|\\(\\d+,\\d+\\)))*",
+      "name": "variable.language"
+    }
+  ],
+  "uuid": "ab259404-3072-4cd4-a943-7cbbd32e373f"
+}

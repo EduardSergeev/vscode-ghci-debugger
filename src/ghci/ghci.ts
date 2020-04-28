@@ -1,9 +1,8 @@
-'use strict';
-
 import * as child_process from 'child_process';
 import * as readline from 'readline';
 import * as process from 'process';
-import { Disposable, CancellationToken, OutputChannel, Event, EventEmitter } from "vscode";
+import { Disposable, CancellationToken, Event, EventEmitter } from "vscode";
+import Output from '../output';
 
 interface StrictCommandConfig {
   token: CancellationToken;
@@ -23,25 +22,24 @@ interface PendingCommand extends StrictCommandConfig {
 }
 
 export default class GhciManager implements Disposable {
-  proc: child_process.ChildProcess | null;
-  command: string;
-  options: any;
-  stdout: readline.ReadLine;
-  stderr: readline.ReadLine;
-  dataEmitter: EventEmitter<string>;
-  data: Event<string>;
-  outputChannel: OutputChannel;
+  private proc: child_process.ChildProcess | null;
+  private dataEmitter: EventEmitter<string>;
+  private rawDataEmitter: EventEmitter<string>;
 
-  wasDisposed: boolean;
+  public stdout: readline.ReadLine;
+  public stderr: readline.ReadLine;
+  public data: Event<string>;
+  public rawData: Event<string>;
 
-  constructor(command: string, options: any, outputChannel: OutputChannel) {
-    this.proc = null;
-    this.command = command;
-    this.options = options;
-    this.outputChannel = outputChannel;
-    this.wasDisposed = false;
-    this.dataEmitter = new EventEmitter<string>();
-    this.data = this.dataEmitter.event;
+  constructor(
+    private options: any,
+    private output: Output) {
+      this.proc = null;
+      this.options = options;
+      this.dataEmitter = new EventEmitter<string>();
+      this.data = this.dataEmitter.event;
+      this.rawDataEmitter = new EventEmitter<string>();
+      this.rawData = this.rawDataEmitter.event;
   }
 
   makeReadline(stream): readline.ReadLine {
@@ -52,21 +50,10 @@ export default class GhciManager implements Disposable {
     return res;
   }
 
-  checkDisposed() {
-    if (this.wasDisposed) {
-      throw new Error('ghci already disposed');
-    }
-  }
-
-  outputLine(line: string) {
-    this.outputChannel.appendLine(line);
-  }
-
-  async start(): Promise<child_process.ChildProcess> {
-    this.checkDisposed();
+  async start(command: string): Promise<child_process.ChildProcess> {
     // Otherwise Windows' cmd cannot display Unicode
     const unicodeFix = process.platform === 'win32' ? 'cmd /c chcp 65001>nul && ' : '';
-    this.proc = child_process.spawn(unicodeFix + this.command, {
+    this.proc = child_process.spawn(unicodeFix + command, {
       ... this.options,
       stdio: 'pipe',
       shell: true,
@@ -76,11 +63,9 @@ export default class GhciManager implements Disposable {
     this.proc.on('error', () => { this.proc = null; });
 
     this.proc.stdout.on('data', (data) => {
+      this.rawDataEmitter.fire(data);
       if(this.currentCommand && this.currentCommand.captureOutput) {
-        this.outputChannel.appendLine(`data+ | ${data}`);
         this.dataEmitter.fire(`${data}`);
-      } else {
-        this.outputChannel.appendLine(`data- | ${data}`);
       }
     });
     this.stdout = this.makeReadline(this.proc.stdout);
@@ -116,31 +101,17 @@ export default class GhciManager implements Disposable {
 
   pendingCommands: PendingCommand[] = [];
 
-  async sendCommand(
-    command: string,
-    config: CommandConfig = {}):
-    Promise<string[]> {
+  sendData(data: string) {
+    this.proc.stdin.write(data);
+  }
+
+  sendCommand(command: string, config: CommandConfig = {}): Promise<string[]> {
     if (config.token) {
       config.token.onCancellationRequested(
         this.handleCancellation.bind(this)
       );
     }
-    if (this.proc === null) {
-      await this.start();
-    }
-    return this._sendCommand(command, config);
-  }
-
-  sendData(data: string) {
-    this.proc.stdin.write(data);
-  }
-
-
-  _sendCommand(command: string, config: CommandConfig = {}):
-    Promise<string[]> {
     return new Promise((resolve, reject) => {
-      this.checkDisposed();
-
       const nullConfig: StrictCommandConfig = {
         token: null,
         info: null,
@@ -160,10 +131,9 @@ export default class GhciManager implements Disposable {
     });
   }
 
-  handleLine(line: string) {
-    this.outputLine(`ghci | ${line}`);
+  handleLine(line: string): void {
     if (this.currentCommand === null) {
-      // Ignore stray line
+      this.output.warning(`Orphant line received (no command running), ignoring: '${line}'`);
     } else {
       if (line.slice(-1) === 'λ') {
         if(line.length > 1) {
@@ -182,20 +152,20 @@ export default class GhciManager implements Disposable {
     }
   }
 
-  handleCancellation() {
+  handleCancellation(): void {
     while (this.pendingCommands.length > 0
       && this.pendingCommands[0].token
       && this.pendingCommands[0].token.isCancellationRequested) {
-      this.outputLine(`Cancel ${this.pendingCommands[0].command}`);
-      this.pendingCommands[0].reject('cancelled');
-      this.pendingCommands.shift();
+        this.output.info(`Cancel ${this.pendingCommands[0].command}`);
+        this.pendingCommands[0].reject('cancelled');
+        this.pendingCommands.shift();
     }
   }
 
   launchCommand({ command, captureOutput, resolve, reject }: PendingCommand) {
     this.currentCommand = { resolve, reject, lines: [], captureOutput };
-    this.outputLine(`    -> ${command}`);
     this.proc.stdin.write(`${command}\n`);
+    this.output.ghciCommand(command);
   }
 
   handleClose() {
@@ -213,8 +183,6 @@ export default class GhciManager implements Disposable {
   }
 
   dispose() {
-    this.wasDisposed = true;
-
     if (this.proc !== null) {
       this.proc.kill();
       this.proc = null;

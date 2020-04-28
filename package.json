@@ -41,6 +41,9 @@
     "breakpoints": [
       {
         "language": "haskell"
+      },
+      {
+        "language": "literate haskell"
       }
     ],
     "debuggers": [
@@ -55,7 +58,7 @@
             "properties": {
               "project": {
                 "type": "string",
-                "description": "Project's type to debug. Supported: `cabal`, `cabal new`, `cabal v2`, `stack`, `bare-stack`, `bare`",
+                "description": "Project's type to debug. Supported: `cabal`, `cabal-new`, `cabal-v2`, `stack`, `bare-stack`, `bare`",
                 "default": null
               },
               "targets": {
@@ -77,15 +80,23 @@
                 "type": "boolean",
                 "description": "Automatically stop after launch.",
                 "default": false
-              },
-              "trace": {
-                "type": "boolean",
-                "description": "Enable logging of the Debug Adapter Protocol.",
-                "default": false
               }
             }
           }
         }
+      }
+    ],
+    "languages": [
+      {
+        "id": "ghci-log",
+        "firstLine": "^‌Starting GHCi with.*"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ghci-log",
+        "scopeName": "code.ghci-log",
+        "path": "./syntax/ghci-log.tmLanguage.json"
       }
     ]
   },
@@ -97,7 +108,6 @@
     "test": "npm run compile && node ./node_modules/vscode/bin/test"
   },
   "dependencies": {
-    "await-notify": "1.0.1",
     "vscode-debugadapter": "1.40.0"
   },
   "devDependencies": {

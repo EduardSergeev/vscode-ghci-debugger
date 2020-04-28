@@ -1,5 +1,24 @@
 # Change Log
-All notable changes to the "GHCi Debugger" extension will be documented in this file.
+All notable changes to the "Bare GHCi Debugger" extension will be documented in this file.
+
+## Unreleased
+### Added
+* ‌Colorize GHCi Output with proper source links
+* StatusBar info for long running operations
+* Evaluate selected expression on hover
+### Fixed
+* Generate launch.json's `name` from selected options
+* Expression evaluation
+* Various minor internal fixes
+
+## [0.4.0] - 2020-04-25
+### Added
+* Configuration: generation of launch.json and on a fly configuration selection
+* Extension configuration option `ghci-debugger.historySize`: the depth of history to keep during debugging
+* Emulate debugging program console in `GHCi Debugger Console` - `Pseudoterminal` implementation
+* `Step Over` and `Step in` debugging actions are now properly implemented
+### Fixed
+* Unicode correctly displayed on Windows (debugging was not working on Windows before)
 
 ## [0.3.0] - 2020-04-22
 ### Added
