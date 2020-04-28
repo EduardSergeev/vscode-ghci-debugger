@@ -40,21 +40,22 @@ suite("All", function () {
     const output = new Promise<string>((resolve, _) => {
       let output = '';
       terminal.onDidWrite(data => {
-        output = output + data;
-        if (output.endsWith('\n\r')) {
-          resolve(data);
-        }
-      },
+          output = output + data;
+          if (output.endsWith('\n\r')) {
+            resolve(data);
+          }
+        },
         this
       );
     });
 
     await new Promise<void>((resolve, _) => {
-      vscode.window.onDidChangeTextEditorSelection(_ => {
-        resolve();
-      }, this
-      );
-    }
+        vscode.window.onDidChangeTextEditorSelection(_ => {
+            resolve();
+          },
+          this
+        );
+      }
     );
 
     const editor = vscode.window.activeTextEditor;
