@@ -68,7 +68,7 @@ export function activate(context: ExtensionContext) {
   );
   const descriptorFactory = vscode.debug.registerDebugAdapterDescriptorFactory(
     ConfigurationProvider.DebuggerType,
-    new DebugFactory(() => new Debug(sessionManager,console, terminal, statusBar))
+    new DebugFactory(() => new Debug(sessionManager, console, terminal, statusBar, output))
   );
 
   context.subscriptions.push(

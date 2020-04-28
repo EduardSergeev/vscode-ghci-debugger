@@ -107,7 +107,7 @@ export default class Session implements vscode.Disposable {
         const fullPath = Path.isAbsolute(path) ?
           path :
           Path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, path);
-        this.moduleMap.set(fullPath.toLowerCase(), module);
+        this.moduleMap.set(Path.normalize(fullPath).toLowerCase(), module);
       }
     }
     return modules;
