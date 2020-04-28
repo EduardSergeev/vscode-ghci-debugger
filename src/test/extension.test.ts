@@ -42,7 +42,7 @@ suite("All", function () {
       terminal.onDidWrite(data => {
           output = output + data;
           if (output.endsWith('\n\r')) {
-            resolve(data);
+            resolve(output);
           }
         },
         this
