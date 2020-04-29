@@ -64,6 +64,8 @@ suite("All", function () {
     await vscode.commands.executeCommand('workbench.action.debug.continue');
 
     assert.equal(await output, 'Hello, tester!\r\n');      
+
+    await vscode.commands.executeCommand(OpenOutputCommandId);
   });
 
 
