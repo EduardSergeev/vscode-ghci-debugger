@@ -6,8 +6,8 @@ import Console from '../console';
 import { OpenOutputCommandId, GhciLogMarker } from '../extension';
 
 
-suite("All", function () {
-  test("Startup", async () => {
+suite("Integration", function () {
+  test("Debug with breakpoint", async () => {
     const doc = await vscode.workspace.openTextDocument(
       path.join(__dirname, '../../input/test1.hs')
     );
