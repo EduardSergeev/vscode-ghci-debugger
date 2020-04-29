@@ -22,6 +22,8 @@ script:
     echo ">>> Run integration tests"
     yarn && yarn compile && yarn test
 
+after_success: yarn run coveralls
+
 cache: yarn
 
 addons:

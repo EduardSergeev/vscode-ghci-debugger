@@ -100,26 +100,54 @@
       }
     ],
     "commands": [
-    {
+      {
         "command": "ghci-debugger.openOutput",
         "title": "Open GHCi Debugger log output",
         "category": "GHCi Debugger"
-    }]
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "test": "node ./out/test/runTest.js"
+    "test": "mocha ./out/test/runTest.js",
+    "coverage": "nyc npm test",
+    "coveralls": "nyc --reporter=text-lcov npm test | coveralls"
+  },
+  "nyc": {
+    "extends": "@istanbuljs/nyc-config-typescript",
+    "require": [
+      "ts-node/register",
+      "source-map-support/register"
+    ],
+    "include": [
+      "src/**/*.ts",
+      "out/**/*.js"
+    ],
+    "exclude": [
+      "src/test/*"
+    ],
+    "reporter": [
+      "html",
+      "text",
+      "lcov"
+    ],
+    "report-dir": "out/coverage"
   },
   "dependencies": {
     "vscode-debugadapter": "1.40.0"
   },
   "devDependencies": {
+    "@istanbuljs/nyc-config-typescript": "^1.0.1",
     "@types/mocha": "^7.0.2",
     "@types/node": "^13.13.4",
     "@types/vscode": "^1.43.0",
+    "coveralls": "^3.1.0",
     "mocha": "^7.1.2",
+    "nyc": "^15.0.1",
+    "source-map-support": "^0.5.19",
+    "ts-node": "^8.9.1",
     "tslint": "^6.1.2",
     "typescript": "^3.8.3",
     "vscode-test": "^1.3.0"
