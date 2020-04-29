@@ -2,14 +2,14 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as path from 'path';
 import { Position } from 'vscode';
-import Console from '../console';
-import { OpenOutputCommandId, GhciLogMarker } from '../extension';
+import Console from '../../console';
+import { OpenOutputCommandId, GhciLogMarker } from '../../extension';
 
 
 suite("Integration", function () {
   test("Debug with breakpoint", async () => {
     const doc = await vscode.workspace.openTextDocument(
-      path.join(__dirname, '../../input/test1.hs')
+      path.join(__dirname, '../../../input/test1.hs')
     );
     await vscode.window.showTextDocument(doc);
 
