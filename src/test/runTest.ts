@@ -25,8 +25,7 @@ async function main() {
         '--skip-getting-started',
         '--skip-release-notes',
         '--disable-restore-windows',
-        '--disable-telemetry',
-     //   '--verbose'
+        '--disable-telemetry'
       ]
     });
   } catch (err) {

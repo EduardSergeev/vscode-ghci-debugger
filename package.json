@@ -112,11 +112,15 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "mocha ./out/test/runTest.js",
-    "coverage": "nyc --require ts-node/register --require source-map-support/register npm test"
-    "coveralls" : "nyc --require ts-node/register --require source-map-support/register --reporter=text-lcov npm test | coveralls"
+    "coverage": "nyc npm test",
+    "coveralls": "nyc --reporter=text-lcov npm test | coveralls"
   },
   "nyc": {
     "extends": "@istanbuljs/nyc-config-typescript",
+    "require": [
+      "ts-node/register",
+      "source-map-support/register"
+    ],
     "include": [
       "src/**/*.ts",
       "out/**/*.js"
