@@ -3,6 +3,7 @@
     "**/out": true,
     "**/node_modules": true,
     "**/.vscode-test/": true,
-    "**/*.vsix": true
+    "**/*.vsix": true,
+    ".nyc_output": true
   }
 }
