@@ -7,7 +7,7 @@ Bare TypeScript adapter to GHCi Debugger.
 
 ## Installation
 
-Does not depends on any additional packages or programs to be installed.  
+Does not depend on any additional packages or programs to be installed.  
 Just install this extension and it should work with variety of Haskell projects (stack, cabal, cabal new, bare ghci).
 
 ## Features

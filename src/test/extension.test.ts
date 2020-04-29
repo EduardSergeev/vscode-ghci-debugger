@@ -6,8 +6,8 @@ import Console from '../console';
 import { OpenOutputCommandId, GhciLogMarker } from '../extension';
 
 
-suite("All", function () {
-  test("Startup", async () => {
+suite("Integration", function () {
+  test("Debug with breakpoint", async () => {
     const doc = await vscode.workspace.openTextDocument(
       path.join(__dirname, '../../input/test1.hs')
     );
@@ -64,6 +64,8 @@ suite("All", function () {
     await vscode.commands.executeCommand('workbench.action.debug.continue');
 
     assert.equal(await output, 'Hello, tester!\r\n');      
+
+    await vscode.commands.executeCommand(OpenOutputCommandId);
   });
 
 
