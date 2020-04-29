@@ -18,7 +18,15 @@ async function main() {
       extensionTestsPath,
       launchArgs: [
         '--new-window',
-        '--disable-extensions'
+        '--disable-extensions',
+        '--disable-gpu',
+        '--disable-updates',
+        '--logExtensionHostCommunication',
+        '--skip-getting-started',
+        '--skip-release-notes',
+        '--disable-restore-windows',
+        '--disable-telemetry',
+     //   '--verbose'
       ]
     });
   } catch (err) {
