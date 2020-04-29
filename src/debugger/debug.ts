@@ -1,13 +1,14 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { Disposable, Terminal } from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { StackFrame, InitializedEvent, Source, Breakpoint, Thread, Scope, StoppedEvent, TerminatedEvent, DebugSession } from "vscode-debugadapter";
+import { StackFrame, InitializedEvent, Source, Thread, Scope, StoppedEvent, TerminatedEvent, DebugSession } from "vscode-debugadapter";
 import Session from '../ghci/session';
 import SessionManager from '../ghci/sessionManager';
 import Configuration from '../configuration';
 import Console from '../console';
 import StatusBar from '../statusBar';
+import Output from '../output';
+import { normalizePath, fileName } from '../path';
 import LaunchRequestArguments from './launchRequestArguments';
 
 
@@ -31,7 +32,9 @@ export default class Debug extends DebugSession implements Disposable {
     private sessionManager: SessionManager,
     private consoleTerminal: Console,
     private terminal: Terminal,
-    private status: StatusBar) {
+    private status: StatusBar,
+    private output: Output)
+  {
       super();
       this.rootDir = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath || '.';
       this.consoleTerminal.onDidInput(this.didInput, this, this.subscriptions);
@@ -135,24 +138,33 @@ export default class Debug extends DebugSession implements Disposable {
     // set breakpoint locations
     this.breakpoints = [];
     this.breakpoints = await Promise.all(
-      args.breakpoints.map(async bp => {
-        const response = await this.session.ghci.sendCommand(
+      args.breakpoints.map(async bp =>
+      {
+        const [response] = await this.session.ghci.sendCommand(
           `:break ${module} ${bp.line} ${bp.column || ''}`
         );
-        const [, id, line, column, endLineColumn, endColumn] =
-          response[0].match(/Breakpoint\s(\d+).+?:(\d+):(\d+)(?:-(\d+))?/) ||
-          response[0].match(/Breakpoint\s(\d+).+?:\((\d+),(\d+)\)-\((\d+),(\d+)\)/);
-        const breakpoint = {
-          id: Number(id),
-          verified: true,
-          line: Number(line),
-          column: Number(column),
-          source: new Source(source.name, source.path),
-          endLine: endColumn && Number(endLineColumn),
-          endColumn: endColumn && Number(endColumn) || endLineColumn && Number(endLineColumn)
-        };
-        return breakpoint;
-      })
+        const match =
+          response.match(/Breakpoint\s(\d+).+?:(\d+):(\d+)(?:-(\d+))?/) ||
+          response.match(/Breakpoint\s(\d+).+?:\((\d+),(\d+)\)-\((\d+),(\d+)\)/);
+        if (match)
+        {
+          const [, id, line, column, endLineColumn, endColumn] = match;
+          const breakpoint = {
+            id: Number(id),
+            verified: true,
+            line: Number(line),
+            column: Number(column),
+            source: new Source(source.name, source.path),
+            endLine: endColumn && Number(endLineColumn),
+            endColumn: endColumn && Number(endColumn) || endLineColumn && Number(endLineColumn)
+          };
+          return breakpoint;
+        } else
+        {
+          this.output.error(`Could not parse \`:break\` response: "${response}"`);
+          return undefined;
+        }
+      }).filter(async b => await b)
     );
     response.body = {
       breakpoints: this.breakpoints
@@ -220,7 +232,7 @@ export default class Debug extends DebugSession implements Disposable {
           const frame = <DebugProtocol.StackFrame>new StackFrame(
               Number(index),
               name,
-              new Source(path.basename(modulePath), path.isAbsolute(modulePath) ? modulePath : path.join(this.rootDir, modulePath)),
+              new Source(fileName(modulePath), normalizePath(this.rootDir, modulePath)),
               Number(line),
               Number(column),
             );
@@ -444,13 +456,13 @@ export default class Debug extends DebugSession implements Disposable {
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):(\d+):(\d+)/m) ||
       output.match(/(?:\[.*\] )?([\s\S]*)Stopped in (\S+),\s(.*):\((\d+),(\d+)\)/m);
     if (match) {
-      const [, _output, name, modPath, line, column, endLineColumn, endColumn] = match;
-      const fullPath = path.isAbsolute(modPath) ? modPath : path.join(this.rootDir, modPath);
+      const [, _output, name, path, line, column, endLineColumn, endColumn] = match;
+      const fullPath = normalizePath(this.rootDir, path);
       const module = this.session.getModuleName(fullPath);
       this.stoppedAt = {
         id: Number(0),
         name: name.split('.').slice(-1)[0],
-        source: new Source(path.basename(modPath), fullPath),
+        source: new Source(fileName(path), fullPath),
         line: Number(line),
         column: Number(column),
         endLine: endColumn && Number(endLineColumn),
@@ -494,7 +506,7 @@ export default class Debug extends DebugSession implements Disposable {
 
   private didOutput(data: string) {
     const start = data.indexOf('Stopped in ');
-    const end = data.indexOf('λ\n');
+    const end = data.search(/λ\r?\n/);
     if (start >= 0) {
       this.serviceMessage = true;
       data = data.slice(0, start);
@@ -508,7 +520,7 @@ export default class Debug extends DebugSession implements Disposable {
       }
       this.serviceMessage = false;
     } else if(!this.serviceMessage) {
-      this.consoleTerminal.sendData(data.replace(/λ\n/m, ''));
+      this.consoleTerminal.sendData(data.replace(/λ\r?\n/m, ''));
     }
   }
 

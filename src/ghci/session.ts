@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
-import * as Path from 'path';
 import GhciManager from "./ghci";
+import Output from '../output';
+import { normalizePath } from '../path';
 import { Resource, asWorkspaceFolder } from './resource';
 import { Project } from './project';
 import { ChildProcess } from 'child_process';
-import Output from '../output';
+
 
 export default class Session implements vscode.Disposable {
   private static StackCommand = 'stack --no-terminal --color never';
@@ -83,7 +84,7 @@ export default class Session implements vscode.Disposable {
       `(Under ${
       this.cwdOption.cwd === undefined
         ? 'default cwd'
-        : `cwd ${ this.cwdOption.cwd }` })`
+        : `cwd ${this.cwdOption.cwd}` })`
     );
 
     return this.ghci.start(cmd);
@@ -104,9 +105,9 @@ export default class Session implements vscode.Disposable {
       const match = /^([^ ]+)\s+\( (.+), .+ \)$/.exec(line);
       if (match) {
         const [, module, path] = match;
-        const fullPath = Path.isAbsolute(path) ?
-          path :
-          Path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, path);
+        // TODO: Hack! Fix me
+        const basePath = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath;
+        const fullPath = normalizePath(basePath, path);
         this.moduleMap.set(fullPath.toLowerCase(), module);
       }
     }
@@ -114,7 +115,7 @@ export default class Session implements vscode.Disposable {
   }
 
   getModuleName(filename: string): string {
-    return this.moduleMap.get(filename);
+    return this.moduleMap.get(filename.toLowerCase());
   }
 
   dispose() {

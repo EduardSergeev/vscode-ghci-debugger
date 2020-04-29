@@ -10,14 +10,16 @@ import OutputLinkProvider from './outputLinkProvider';
 import StatusBar from './statusBar';
 
 
+export const ConsoleTitle = 'GHCi Debugger Console';
+export const OpenOutputCommandId = 'ghci-debugger.openOutput';
+export const GhciLogMarker = '‌Starting GHCi with';
+
 export function activate(context: ExtensionContext) {
   const outputChannelTitle = 'GHCi Debugger';
   const ghciLogMarker = '‌Starting GHCi with';
   const statusBatTooltip = 'GHCi Debugger\nClick to open log output';
   const statusBarBusyPrefix = '$(debug-alt) ';
-  const consoleTitle = 'GHCi Debugger Console';
   const ghciLogLanguageId = 'ghci-log';
-  const openOutputCommandId = 'ghci-debugger.openOutput';
 
   // Until [it is directly supported](https://github.com/Microsoft/vscode/issues/11005)
   // we have to use this hacky approach to set `ghci` language to our `OutputChannel`
@@ -39,14 +41,14 @@ export function activate(context: ExtensionContext) {
 
   const statusBarItem = vscode.window.createStatusBarItem(StatusBarAlignment.Left);
   statusBarItem.tooltip = statusBatTooltip;
-  statusBarItem.command = openOutputCommandId;
+  statusBarItem.command = OpenOutputCommandId;
   const statusBar = new StatusBar(statusBarItem, statusBarBusyPrefix);
 
   const sessionManager = new SessionManager(output, statusBar);
 
   const console = new Console();
   const terminal = vscode.window.createTerminal({
-    name: consoleTitle,
+    name: ConsoleTitle,
     pty: console
   });
 
@@ -56,7 +58,7 @@ export function activate(context: ExtensionContext) {
   );
 
   const openOutputCommand = vscode.commands.registerCommand(
-    openOutputCommandId,
+    OpenOutputCommandId,
     () => output.show()
   );
 
@@ -66,7 +68,7 @@ export function activate(context: ExtensionContext) {
   );
   const descriptorFactory = vscode.debug.registerDebugAdapterDescriptorFactory(
     ConfigurationProvider.DebuggerType,
-    new DebugFactory(() => new Debug(sessionManager,console, terminal, statusBar))
+    new DebugFactory(() => new Debug(sessionManager, console, terminal, statusBar, output))
   );
 
   context.subscriptions.push(
@@ -78,4 +80,6 @@ export function activate(context: ExtensionContext) {
     linkProvider,
     configurationProvider,
     descriptorFactory);
+
+  return console;
 }

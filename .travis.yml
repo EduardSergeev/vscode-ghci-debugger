@@ -1,17 +1,30 @@
-sudo: false
-
+ 
+language: node_js
 os:
   - osx
   - linux
+node_js: 8
 
-services:
-  - xvfb
+before_install:
+  - |
+    # install stack
+    curl -sSL https://get.haskellstack.org/ | sh
 
 install:
-  - npm install
-  - npm run vscode:prepublish
-  - npm install -g vsce
+  - |
+    if [ $TRAVIS_OS_NAME == "linux" ]; then
+      export DISPLAY=':99.0'
+      /usr/bin/Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+    fi
 
 script:
-  - npm test --silent
-  - vsce package
+  - |
+    echo ">>> Run integration tests"
+    yarn && yarn compile && yarn test
+
+cache: yarn
+
+addons:
+  apt:
+    packages:
+    - libsecret-1-dev
