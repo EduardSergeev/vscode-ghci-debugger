@@ -111,7 +111,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "test": "mocha ./out/test/runTest.js",
+    "test": "npm run compile && mocha ./out/test/runTest.js",
     "coverage": "nyc npm test",
     "coveralls": "nyc --reporter=text-lcov npm test | coveralls"
   },
