@@ -130,8 +130,8 @@
     ],
     "reporter": [
       "text-summary",
-      "html",
-      "lcov"
+      "lcov",
+      "html"
     ],
     "report-dir": "out/coverage"
   },

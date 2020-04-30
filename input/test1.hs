@@ -1,3 +1,5 @@
 main :: IO ()
 main = do
-  putStrLn "Hello, tester!"
+  putStr "Hello"
+  putStr ", "
+  putStrLn "tester!"
