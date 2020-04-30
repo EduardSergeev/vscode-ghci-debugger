@@ -28,7 +28,7 @@ suite("Integration", function () {
       name: 'test',
       request: 'launch',
       stopOnEntry: false,
-      project: 'bare-stack',
+      project: 'bare',
       module: 'Main',
       expression: 'main'
     });
