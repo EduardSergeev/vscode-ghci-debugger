@@ -14,9 +14,13 @@ suite("Integration", function () {
     );
     await vscode.window.showTextDocument(doc);
 
-    vscode.debug.addBreakpoints([
-      new SourceBreakpoint(new Location(doc.uri, new Position(2, 0)))
-    ]);
+    const breakpoints = [
+      new SourceBreakpoint(new Location(doc.uri, new Position(1, 0))),
+      new SourceBreakpoint(new Location(doc.uri, new Position(7, 0))),
+      new SourceBreakpoint(new Location(doc.uri, new Position(8, 0)))
+    ];
+    vscode.debug.addBreakpoints(breakpoints);
+
 
     const started = await didChangeTextEditorSelection1(() =>
       vscode.debug.startDebugging(null, {
@@ -37,8 +41,8 @@ suite("Integration", function () {
     const output = new Promise<string>((resolve, _) => {
       let output = '';
       terminal.onDidWrite(data => {
-          output = output + data;
-          if (output.endsWith('\r\n')) {
+          output = output + data.replace(/\r\n/g, '\n');
+          if (output.endsWith('!\n')) {
             resolve(output);
           }
       }, this);
@@ -51,37 +55,51 @@ suite("Integration", function () {
     const editor = vscode.window.activeTextEditor;
 
     // Stopped on entry
-    assert.deepEqual(editor.selection.start, new Position(1, 7));
+    assert.deepEqual(editor.selection.start, new Position(6, 7));
 
     // Continue
     await didChangeTextEditorSelection1(() =>
       vscode.commands.executeCommand('workbench.action.debug.continue')
     );
-    assert.deepEqual(editor.selection.active, new Position(2, 2));
+    assert.deepEqual(editor.selection.active, new Position(7, 2));
+
+    // Continue
+    await didChangeTextEditorSelection1(() =>
+      vscode.commands.executeCommand('workbench.action.debug.continue')
+    );
+    assert.deepEqual(editor.selection.active, new Position(1, 8));
+
+    vscode.debug.removeBreakpoints(breakpoints.slice(0, 1));
+    // Several Set Into in `fib`
+    for(let i=0; i < 5; i++) {
+      await didChangeTextEditorSelection1(() =>
+        vscode.commands.executeCommand('workbench.action.debug.stepInto')
+      );
+    }
+    // Continue
+    await didChangeTextEditorSelection1(() =>
+      vscode.commands.executeCommand('workbench.action.debug.continue')
+    );
+    assert.deepEqual(editor.selection.active, new Position(8, 2));
 
     // Evaluate Repl
     await vscode.commands.executeCommand('workbench.panel.repl.view.focus');
     await vscode.env.clipboard.writeText('sum [1..10]');
     await vscode.commands.executeCommand('editor.action.clipboardPasteAction');
     await vscode.commands.executeCommand('repl.action.acceptInput');
-    // await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+    await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
 
-    // Step Into
-    await didChangeTextEditorSelection1(() =>
-      vscode.commands.executeCommand('workbench.action.debug.stepInto')
-    );
-    assert.deepEqual(editor.selection.active, new Position(3, 2));
-    
     // Step Over
     await didChangeTextEditorSelection1(() =>
       vscode.commands.executeCommand('workbench.action.debug.stepOver')
     );
-    assert.deepEqual(editor.selection.start, new Position(4, 2));
+    assert.deepEqual(editor.selection.start, new Position(9, 2));
 
-    // Continue
-    await vscode.commands.executeCommand('workbench.action.debug.continue');
+    // Continue to finish
+    vscode.commands.executeCommand('workbench.action.debug.continue');
 
-    assert.equal(await output, 'Hello, tester!\r\n');      
+    const o = await output;
+    assert.equal(await output, `55\nHello, tester!\n`);      
     
     // Allow OutputLinkProvider to kick in
     await vscode.commands.executeCommand(OpenOutputCommandId);
