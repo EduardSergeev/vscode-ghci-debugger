@@ -129,9 +129,9 @@
       "src/test/*"
     ],
     "reporter": [
-      "html",
-      "text",
-      "lcov"
+      "text-summary",
+      "lcov",
+      "html"
     ],
     "report-dir": "out/coverage"
   },

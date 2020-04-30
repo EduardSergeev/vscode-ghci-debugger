@@ -1,26 +1,21 @@
 import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as path from 'path';
-import { Position } from 'vscode';
+import { Position, Selection } from 'vscode';
 import Console from '../../console';
 import { OpenOutputCommandId, GhciLogMarker } from '../../extension';
 
 
 suite("Integration", function () {
-  test("Debug with breakpoint", async () => {
+
+  test("Simple debug run", async () => {
     const doc = await vscode.workspace.openTextDocument(
       path.join(__dirname, '../../../input/test1.hs')
     );
     await vscode.window.showTextDocument(doc);
 
-    const breakPoint = new Position(2, 2);
     vscode.debug.addBreakpoints([
-      new vscode.SourceBreakpoint(
-        new vscode.Location(
-          doc.uri,
-          breakPoint
-        )
-      )
+      new vscode.SourceBreakpoint(new vscode.Location(doc.uri, new Position(2, 0)))
     ]);
 
     const started = await vscode.debug.startDebugging(null, {
@@ -44,22 +39,26 @@ suite("Integration", function () {
           if (output.endsWith('\r\n')) {
             resolve(output);
           }
-        },
-        this
-      );
+      }, this);
     });
 
-    await new Promise<void>((resolve, _) => {
-        vscode.window.onDidChangeTextEditorSelection(_ => {
-            resolve();
-          },
-          this
-        );
-      }
-    );
-
     const editor = vscode.window.activeTextEditor;
-    assert.deepEqual(editor.selection.start, breakPoint);
+
+    await didChangeTextEditorSelection();
+    assert.deepEqual(editor.selection.start, new Position(2, 2));
+
+    await vscode.commands.executeCommand('workbench.panel.repl.view.focus');
+    await vscode.env.clipboard.writeText('2+2');
+    await vscode.commands.executeCommand('editor.action.clipboardPasteAction');
+    const result = await vscode.commands.executeCommand('repl.action.acceptInput');
+
+    await vscode.commands.executeCommand('workbench.action.debug.stepInto');
+    await didChangeTextEditorSelection();
+    assert.deepEqual(editor.selection.start, new Position(3, 2));
+
+    await vscode.commands.executeCommand('workbench.action.debug.stepOver');
+    await didChangeTextEditorSelection();
+    assert.deepEqual(editor.selection.start, new Position(4, 2));
 
     await vscode.commands.executeCommand('workbench.action.debug.continue');
 
@@ -85,3 +84,13 @@ suite("Integration", function () {
     }
   });
 });
+
+
+function didChangeTextEditorSelection() {
+  return new Promise<Selection>((resolve, _) => {
+    const disposable = vscode.window.onDidChangeTextEditorSelection(event => {
+      disposable.dispose();
+      resolve(event.selections[0]);
+    });
+  });
+}
