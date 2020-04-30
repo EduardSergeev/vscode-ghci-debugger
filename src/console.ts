@@ -1,14 +1,14 @@
 import { Pseudoterminal, Event, TerminalDimensions, EventEmitter } from "vscode";
 
 export default class Console implements Pseudoterminal {
-  private writeEmitter: EventEmitter<string>;
-  private readEmitter: EventEmitter<string>;
+  private outputEmitter: EventEmitter<string>;
+  private inputEmitter: EventEmitter<string>;
 
   public constructor() {
-    this.writeEmitter = new EventEmitter<string>();
-    this.readEmitter = new EventEmitter<string>();
-    this.onDidWrite = this.writeEmitter.event;
-    this.onDidInput = this.readEmitter.event;
+    this.outputEmitter = new EventEmitter<string>();
+    this.inputEmitter = new EventEmitter<string>();
+    this.onDidWrite = this.outputEmitter.event;
+    this.onDidInput = this.inputEmitter.event;
   }
 
   public onDidWrite: Event<string>;
@@ -27,13 +27,13 @@ export default class Console implements Pseudoterminal {
       if (data === '\r') {
         data = '\r\n';
       }
-      this.readEmitter.fire(data);
-      this.writeEmitter.fire(data);
+      this.inputEmitter.fire(data === '\r' ? '\r\n' : data);
+      this.outputEmitter.fire(data === '\r' ? '\n' : data);
     }
   }
   
   public sendData(data: string): void {
     const fixed = data.replace(/(?<!\r)\n/g, '\r\n');
-    this.writeEmitter.fire(fixed);
+    this.outputEmitter.fire(fixed);
   }
 }

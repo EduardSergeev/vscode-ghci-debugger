@@ -135,6 +135,10 @@ export default class Debug extends DebugSession implements Disposable {
     const source = args.source;
     const module = this.session.getModuleName(source.path.toLowerCase());
 
+    await this.session.ghci.sendCommand(
+      `:delete *`
+    );
+
     // set breakpoint locations
     this.breakpoints = [];
     this.breakpoints = await Promise.all(
