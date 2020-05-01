@@ -1,37 +1,29 @@
  
 language: node_js
-os:
-  - osx
-  - linux
 node_js: 8
 
-before_install:
-  - export PATH=/opt/ghc/8.8.3/bin:$PATH
-
-install:
-  - |
-    if [ $TRAVIS_OS_NAME == "linux" ]; then
-      export DISPLAY=':99.0'
-      /usr/bin/Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
-    fi
+jobs:
+  include:
+  - os: linux
+    language: haskell
+    ghc: 
+      - "8.8"
+    install:
+      - |
+        export DISPLAY=':99.0'
+        /usr/bin/Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+  - os: osx
+    if: branch = master
 
 script:
-  - |
-    echo ">>> Run integration tests"
-    npm install && npm test
-
-after_success:
-  - npm run coverage
+  - npm install && npm run coverage
 
 cache: npm
 
 addons:
   apt:
-    sources:
-    - hvr-ghc    
     packages:
     - libsecret-1-dev
-    - ghc-8.8.3    
   homebrew:
     packages:
     - ghc@8.8
