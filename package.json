@@ -111,9 +111,14 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
     "test": "npm run compile && mocha ./out/test/runTest.js",
     "coverage": "nyc npm test",
-    "coveralls": "nyc --reporter=text-lcov npm test | coveralls"
+    "coveralls": "nyc --reporter=text-lcov npm test | coveralls",
+    "prepackage": "npm run compile",
+    "package": "vsce package",
+    "preupload": "npm run package",
+    "upload": "vsce publish"
   },
   "nyc": {
     "extends": "@istanbuljs/nyc-config-typescript",
@@ -136,20 +141,19 @@
     "report-dir": "out/coverage"
   },
   "dependencies": {
-    "vscode-debugadapter": "1.40.0"
+    "vscode-debugadapter": "1.50.0"
   },
   "devDependencies": {
     "@istanbuljs/nyc-config-typescript": "^1.0.1",
-    "@types/mocha": "^7.0.2",
-    "@types/node": "^13.13.4",
+    "@types/mocha": "^9.0.0",
+    "@types/node": "^16.11.7",
     "@types/vscode": "^1.43.0",
-    "coveralls": "^3.1.0",
-    "mocha": "^7.1.2",
-    "nyc": "^15.0.1",
-    "source-map-support": "^0.5.19",
-    "ts-node": "^8.9.1",
-    "tslint": "^6.1.2",
-    "typescript": "^3.8.3",
-    "vscode-test": "^1.3.0"
+    "coveralls": "^3.1.1",
+    "mocha": "^9.1.3",
+    "nyc": "^15.1.0",
+    "source-map-support": "^0.5.20",
+    "ts-node": "^10.4.0",
+    "typescript": "^4.4.4",
+    "vscode-test": "^1.6.1"
   }
 }
