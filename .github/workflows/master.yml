@@ -1,0 +1,68 @@
+name: master
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        env:
+          - { CODE_VERSION: 1.38.0, DISPLAY: ':99.0', ACTIONS_ALLOW_UNSECURE_COMMANDS: true }
+          - { CODE_VERSION: 'stable', DISPLAY: ':99.0', ACTIONS_ALLOW_UNSECURE_COMMANDS: true }
+    runs-on: ${{ matrix.os }}
+    env: ${{ matrix.env }}
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup GHC environment
+      run: echo "::add-path::/opt/ghc/bin"
+
+    - run: npm install
+
+    - name: Run tests
+      uses: GabrielBB/xvfb-action@v1.4
+      with:
+        run: npm test
+
+    - name: Add GHC extension output (on failure on Linux)
+      if: failure() && runner.os == 'Linux'
+      run: find .vscode-test/vscode-*/udd/logs -name *GHC* -exec cat {} \;
+
+    - name: Add GHC extension output (on failure on Windows)
+      if: failure() && runner.os == 'Windows'
+      run: Get-ChildItem -Path .vscode-test -Include *GHC.log -File -Recurse | Get-Content
+
+  metrics:
+    runs-on: ubuntu-latest
+    env: { CODE_VERSION: 1.48.0, DISPLAY: ':99.0', ACTIONS_ALLOW_UNSECURE_COMMANDS: true }
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup GHC environment
+      run: echo "::add-path::/opt/ghc/bin"
+
+    - run: npm install
+
+    - name: Run tests with coverage
+      uses: GabrielBB/xvfb-action@v1.4
+      with:
+        run: npm run coverage
+
+    - name: Publish coverage on Coveralls.io
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        path-to-lcov: .coverage/lcov.info
