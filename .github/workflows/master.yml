@@ -20,20 +20,20 @@ jobs:
           - windows-latest
           - macos-latest
         env:
-          - { CODE_VERSION: 1.38.0, DISPLAY: ':99.0', ACTIONS_ALLOW_UNSECURE_COMMANDS: true }
-          - { CODE_VERSION: 'stable', DISPLAY: ':99.0', ACTIONS_ALLOW_UNSECURE_COMMANDS: true }
+          - { CODE_VERSION: 1.38.0 }
+          - { CODE_VERSION: 'stable' }
     runs-on: ${{ matrix.os }}
     env: ${{ matrix.env }}
     steps:
     - uses: actions/checkout@v2
 
     - name: Setup GHC environment
-      run: echo "::add-path::/opt/ghc/bin"
+      run: echo "/opt/ghc/bin" >> $GITHUB_PATH
 
     - run: npm install
 
     - name: Run tests
-      uses: GabrielBB/xvfb-action@v1.4
+      uses: GabrielBB/xvfb-action@v1
       with:
         run: npm test
 
@@ -47,17 +47,17 @@ jobs:
 
   metrics:
     runs-on: ubuntu-latest
-    env: { CODE_VERSION: 1.48.0, DISPLAY: ':99.0', ACTIONS_ALLOW_UNSECURE_COMMANDS: true }
+    env: { CODE_VERSION: 1.48.0 }
     steps:
     - uses: actions/checkout@v2
 
     - name: Setup GHC environment
-      run: echo "::add-path::/opt/ghc/bin"
+      run: echo "/opt/ghc/bin" >> $GITHUB_PATH
 
     - run: npm install
 
     - name: Run tests with coverage
-      uses: GabrielBB/xvfb-action@v1.4
+      uses: GabrielBB/xvfb-action@v1
       with:
         run: npm run coverage
 
