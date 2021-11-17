@@ -1,6 +1,6 @@
 # VSCode GHCi Debugger
 
-[![Build Status](https://travis-ci.org/EduardSergeev/vscode-ghci-debugger.svg?branch=master)](https://travis-ci.org/EduardSergeev/vscode-ghci-debugger)
+[![Build Status](https://github.com/EduardSergeev/vscode-ghci-debugger/workflows/master/badge.svg)](https://github.com/EduardSergeev/vscode-ghci-debugger/actions?query=workflow%3Amaster+branch%3Amaster)
 [![Coverage Status](https://coveralls.io/repos/github/EduardSergeev/vscode-ghci-debugger/badge.svg?branch=master)](https://coveralls.io/github/EduardSergeev/vscode-ghci-debugger?branch=master)
 
 Bare TypeScript adapter to GHCi Debugger.  
