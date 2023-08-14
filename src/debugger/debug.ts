@@ -92,17 +92,17 @@ export default class Debug extends DebugSession implements Disposable {
     this.session = await this.sessionManager.getSession(resource, args.project, args.targets);
     this.session.ghci.data(this.didOutput, this, this.subscriptions);
 
-    if(this.rootDir !== '.') {
-      await this.status.withStatus(
-        this.session.ghci.sendCommand(
-          `:l ${args.module}`
-        ), 'Loading project...'
-      );
-    } else {
+    if(args.project === 'bare' || args.project === 'bare-stack') {
       await this.status.withStatus(
         this.session.ghci.sendCommand(
           `:l ${vscode.window.activeTextEditor.document.uri.fsPath}`
         ), 'Loading file...'
+      );
+    } else {
+      await this.status.withStatus(
+        this.session.ghci.sendCommand(
+          `:l ${args.module}`
+        ), 'Loading project...'
       );
     }
 

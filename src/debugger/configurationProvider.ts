@@ -164,6 +164,8 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       const resourceType = resource ? { cwd: resource.uri.fsPath } : {};
       return project === 'stack' ?
         await this.getStackIdeTargets(resourceType) :
+        project === 'bare-stack' ?
+        await this.getBareStackTargets(folder) :
         ['cabal', 'cabal-new', 'cabal-v2'].includes(project) ?
         await this.getCabalTargets('configure', resourceType) :
         [];
@@ -240,6 +242,17 @@ export default class ConfigurationProvider implements DebugConfigurationProvider
       );
     });
     return result.match(/^[^\s]+:[^\s]+$/gm);
+  }
+
+  private async getBareStackTargets(folder: WorkspaceFolder) {
+    // const files = await vscode.workspace.findFiles('*.hs');
+    // return files.length > 1 ?
+    //   await vscode.window.showQuickPick(files.map(f => f.fsPath), {
+    //   placeHolder: "Select file(s) to debug",
+    //   canPickMany: true
+    // }) :
+    // files;
+    return [vscode.window.activeTextEditor.document.uri.path];
   }
 
   private async getCabalTargets(configure: string, cwdOption: { cwd?: string }) {
