@@ -5,7 +5,7 @@ import {
   runTests,
   downloadAndUnzipVSCode,
   resolveCliPathFromVSCodeExecutablePath
-} from 'vscode-test';
+} from '@vscode/test-electron';
 
 async function main() {
   try {

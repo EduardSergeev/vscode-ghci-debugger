@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { Disposable, Terminal } from 'vscode';
-import { DebugProtocol } from 'vscode-debugprotocol';
-import { StackFrame, InitializedEvent, Source, Thread, Scope, StoppedEvent, TerminatedEvent, DebugSession } from "vscode-debugadapter";
+import { DebugProtocol } from '@vscode/debugprotocol';
+import { StackFrame, InitializedEvent, Source, Thread, Scope, StoppedEvent, TerminatedEvent, DebugSession } from "@vscode/debugadapter";
 import Session from '../ghci/session';
 import SessionManager from '../ghci/sessionManager';
 import Configuration from '../configuration';
@@ -84,7 +84,7 @@ export default class Debug extends DebugSession implements Disposable {
     this.signalConfigurationDone();
   }
 
-  protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
+  protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments, ) {
     const resource = vscode.workspace.workspaceFolders ?
       vscode.workspace.workspaceFolders[0] :
       vscode.window.activeTextEditor.document;
