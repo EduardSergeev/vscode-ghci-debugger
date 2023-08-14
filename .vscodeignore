@@ -1,9 +1,12 @@
+.github
 .gitignore
 .nyc_output
 .vscode
 .vscode-test
+images
 input
-node_modules/**/test
+node_modules/**/tests
+node_modules/**/*.ts
 out/test
 out/coverage
 out/**/*.map

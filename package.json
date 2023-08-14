@@ -2,7 +2,7 @@
   "name": "ghci-debugger",
   "displayName": "Bare GHCi Debugger",
   "description": "Pure TypeScript adapter to GHCi debugger",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "Edka",
   "repository": {
     "url": "https://github.com/EduardSergeev/vscode-ghci-debugger"
@@ -139,13 +139,16 @@
     ],
     "report-dir": "out/coverage"
   },
+  "dependencies": {
+    "@vscode/debugadapter": "1.61.0"
+  },
   "devDependencies": {
     "@istanbuljs/nyc-config-typescript": "1.0.2",
     "@types/mocha": "10.0.1",
     "@types/node": "20.5.0",
     "@types/vscode": "1.43.0",
-    "@vscode/debugadapter": "1.61.0",
     "@vscode/test-electron": "2.3.4",
+    "@vscode/vsce": "2.20.1",
     "mocha": "10.2.0",
     "nyc": "15.1.0",
     "source-map-support": "0.5.21",
